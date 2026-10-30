@@ -1,51 +1,42 @@
 # Speedrunners Online
 
-A community website for sharing speedrunning clips and tips, with a small playable Quick Run mini-game.
+A Vite + Supabase community site with a browser mini-runner.
 
 ## Features
 
-- Email/password sign-up, sign-in, and sign-out with Supabase Auth
-- Public community feed for clips and tips
-- Create and delete your own posts
-- Optional external clip/reference links
-- Search and filter the feed
-- Quick Run browser mini-game with account-saved best score
-- Guest browsing and guest gameplay
+- Email/password accounts through Supabase Auth.
+- Community feed for clips and tips.
+- Image and short-video attachments using Supabase Storage.
+- Public player directory with searchable usernames and display names.
+- Profile avatar uploads.
+- Quick Run / Cloud Dash game with blocks and hopping storm-sprite enemies.
+- Player best-score and progress saves in Supabase.
+- A server-side Stripe Checkout endpoint that accepts **test-mode keys only**.
 
-## Stack
+## Environment variables
 
-- Vite
-- Vanilla JavaScript
-- Supabase JS client
-- Supabase Postgres with Row Level Security
+Set these in Vercel for the app:
 
-## Vercel environment variables
+- \`VITE_SUPABASE_URL\`
+- \`VITE_SUPABASE_PUBLISHABLE_KEY\`
 
-Set these for Production, Preview, and Development:
+The Supabase migration in \`supabase/migrations\` creates the media bucket, profile fields, and upload policies.
 
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_PUBLISHABLE_KEY`
+## Upload limits
 
-Use only the Supabase publishable key in browser code. Never expose a service-role or secret key.
+Community attachments allow JPG, PNG, WEBP, GIF, MP4, and WEBM up to 25 MB. Profile avatars allow image files up to 5 MB. Uploaded community files are public, so only upload material you have permission to share and are comfortable making public.
+
+## Payments: test-only scaffold
+
+The API route \`/api/create-checkout-session\` checks the Supabase login on the server and calls Stripe Checkout without exposing a Stripe secret to the browser.
+
+The route rejects any Stripe secret that does not start with \`sk_test_\`. Configure \`STRIPE_SECRET_KEY\` (test key only) and \`STRIPE_PRICE_ID\` as server-side Vercel environment variables only after an adult account owner has reviewed the setup. **Do not add live keys.** No purchase rewards are granted; verified webhooks and fulfillment would be required before offering paid digital items. Real-money payments are not enabled in this version.
 
 ## Local development
 
-1. Install Node.js 18 or newer.
-2. Run `npm install`.
-3. Copy `.env.example` to `.env.local` and add your Supabase URL and publishable key.
-4. Run `npm run dev`.
-5. Run `npm run build` to check the production build.
+\`\`\`bash
+npm install
+npm run dev
+\`\`\`
 
-## Database
-
-The app uses the existing `public.parkour_progress` table to save Quick Run scores. It adds `public.community_posts` for the community feed. Row Level Security makes posts public to read, while only signed-in authors can create, update, or delete their own posts.
-
-The migration is in `supabase/migrations/202610290001_create_community_posts.sql`.
-
-## Payments later
-
-Payments are intentionally not enabled in this starter. They can be added later with a trusted server-side checkout flow (for example, Stripe Checkout through a Vercel server function) and verified webhooks. Payment secrets must stay server-side and must never be placed in frontend environment variables.
-
-## Not included yet
-
-Direct video uploads, comments, likes, moderation tools, multiplayer matchmaking, and payment processing are future features.
+Deployments are triggered by pushes to the connected GitHub repository.
