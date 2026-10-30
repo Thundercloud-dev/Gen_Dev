@@ -1,127 +1,676 @@
 import { createClient } from '@supabase/supabase-js'
 import './style.css'
 
-const url=import.meta.env.VITE_SUPABASE_URL
-const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-const db=url&&key?createClient(url,key):null
-const $=id=>document.getElementById(id)
-let user=null,posts=[],filter='all',progress={current_level:1,unlocked_level:1,total_jumps:0,best_score:0,coins:0}
+const url = import.meta.env.VITE_SUPABASE_URL
+const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+const db = url && key ? createClient(url, key) : null
+const $ = id => document.getElementById(id)
+const MAX_MEDIA_SIZE = 25 * 1024 * 1024
+const MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm']
+let user = null
+let session = null
+let profile = null
+let posts = []
+let filter = 'all'
+let progress = { current_level: 1, unlocked_level: 1, total_jumps: 0, best_score: 0, coins: 0 }
 let game
 
-function modal(id,show=true){$(id).classList.toggle('hidden',!show)}
-function message(id,text,error=false){$(id).textContent=text;$(id).classList.toggle('error',error)}
-function view(name){$('community-view').classList.toggle('hidden',name!=='community');$('game-view').classList.toggle('hidden',name!=='game');document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.view===name));if(name==='game')game.draw();window.scrollTo({top:0,behavior:'smooth'})}
-document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>view(b.dataset.view))
-document.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>view(b.dataset.goto))
-$('explore').onclick=()=>$('community-view').scrollIntoView({behavior:'smooth'})
-$('year').textContent=new Date().getFullYear()
+function modal(id, show = true) { $(id).classList.toggle('hidden', !show) }
+function message(id, text, error = false) {
+  const node = $(id)
+  node.textContent = text
+  node.classList.toggle('error', error)
+}
+function safeFileName(name) {
+  return (name || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_').slice(-100) || 'upload'
+}
+function isAllowedMedia(file, imagesOnly = false) {
+  if (!file) return false
+  const allowed = imagesOnly ? MEDIA_TYPES.slice(0, 4) : MEDIA_TYPES
+  return allowed.includes(file.type) && file.size <= (imagesOnly ? 5 : 25) * 1024 * 1024
+}
+function publicMediaUrl(path) {
+  if (!db || !path) return ''
+  return db.storage.from('community-media').getPublicUrl(path).data.publicUrl
+}
+function accountUI() {
+  const label = profile?.display_name || profile?.username || user?.email || 'Browsing as guest'
+  $('account').textContent = user ? label : 'Browsing as guest'
+  $('auth-open').classList.toggle('hidden', !!user)
+  $('signout').classList.toggle('hidden', !user)
+  $('save-status').textContent = user ? 'Signed in — your best score syncs.' : 'Playing as guest — sign in to save.'
+  renderOwnProfile()
+}
+async function ensureProfile() {
+  if (!db || !user) { profile = null; return }
+  const { data, error } = await db.from('profiles')
+    .select('id,username,display_name,avatar_path')
+    .eq('id', user.id)
+    .maybeSingle()
+  if (error) { console.warn('Profile lookup failed:', error.message); return }
+  if (data) { profile = data; return }
+  const username = 'runner_' + user.id.replace(/-/g, '').slice(0, 10)
+  const displayName = String(user.user_metadata?.display_name || 'Runner').slice(0, 30)
+  const { data: created, error: createError } = await db.from('profiles')
+    .insert({ id: user.id, username, display_name: displayName })
+    .select('id,username,display_name,avatar_path')
+    .single()
+  if (!createError) profile = created
+  else console.warn('Profile creation failed:', createError.message)
+}
+function view(name) {
+  for (const id of ['community', 'players', 'game', 'shop']) {
+    $('' + id + '-view').classList.toggle('hidden', id !== name)
+  }
+  document.querySelectorAll('.tab').forEach(button => button.classList.toggle('active', button.dataset.view === name))
+  if (name === 'game') game.draw()
+  if (name === 'players') { renderOwnProfile(); loadPlayers() }
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => view(button.dataset.view)))
+document.querySelectorAll('[data-goto]').forEach(button => button.addEventListener('click', () => view(button.dataset.goto)))
+$('explore').onclick = () => $('community-view').scrollIntoView({ behavior: 'smooth' })
+$('year').textContent = new Date().getFullYear()
 
-function accountUI(){
- $('account').textContent=user?(user.user_metadata?.display_name||user.email):'Browsing as guest'
- $('auth-open').classList.toggle('hidden',!!user);$('signout').classList.toggle('hidden',!user)
- $('save-status').textContent=user?'Signed in — your best score syncs.':'Playing as guest — sign in to save.'
+function validUrl(raw) {
+  if (!raw) return null
+  try {
+    const parsed = new URL(raw)
+    return ['https:', 'http:'].includes(parsed.protocol) ? parsed.href : null
+  } catch { return null }
 }
-function validUrl(raw){if(!raw)return null;try{const u=new URL(raw);return ['https:','http:'].includes(u.protocol)?u.href:null}catch{return null}}
-function renderPosts(){
- const root=$('posts');root.replaceChildren()
- const q=$('search').value.trim().toLowerCase()
- const list=posts.filter(p=>(filter==='all'||p.post_type===filter)&&(!q||[p.title,p.body,p.username].join(' ').toLowerCase().includes(q)))
- if(!list.length){const e=document.createElement('div');e.className='empty';e.textContent=posts.length?'No posts match your search.':'No posts yet — be the first to share a clip or tip.';root.append(e);return}
- for(const p of list){
-  const card=document.createElement('article');card.className='post'
-  const meta=document.createElement('div');meta.className='post-meta'
-  const tag=document.createElement('span');tag.className='tag '+p.post_type;tag.textContent=p.post_type==='clip'?'▶ CLIP':'✦ TIP'
-  const date=document.createElement('span');date.textContent=new Date(p.created_at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});meta.append(tag,date)
-  const title=document.createElement('h3');title.textContent=p.title
-  const body=document.createElement('p');body.textContent=p.body
-  card.append(meta,title,body)
-  const link=validUrl(p.link_url);if(link){const a=document.createElement('a');a.className='post-link';a.href=link;a.target='_blank';a.rel='noopener noreferrer';a.textContent=p.post_type==='clip'?'Watch the clip ↗':'Open reference ↗';card.append(a)}
-  const foot=document.createElement('div');foot.className='post-foot';const author=document.createElement('span');author.textContent='●  '+(p.username||'Runner');foot.append(author)
-  if(user&&user.id===p.user_id){const del=document.createElement('button');del.className='delete';del.textContent='Delete';del.onclick=()=>deletePost(p.id);foot.append(del)}
-  card.append(foot);root.append(card)
- }
+function renderPosts() {
+  const root = $('posts')
+  root.replaceChildren()
+  const query = $('search').value.trim().toLowerCase()
+  const list = posts.filter(post =>
+    (filter === 'all' || post.post_type === filter) &&
+    (!query || [post.title, post.body, post.username].join(' ').toLowerCase().includes(query))
+  )
+  if (!list.length) {
+    const empty = document.createElement('div')
+    empty.className = 'empty'
+    empty.textContent = posts.length ? 'No posts match your search.' : 'No posts yet — be the first to share a clip or tip.'
+    root.append(empty)
+    return
+  }
+  for (const post of list) {
+    const card = document.createElement('article')
+    card.className = 'post'
+    const meta = document.createElement('div')
+    meta.className = 'post-meta'
+    const tag = document.createElement('span')
+    tag.className = 'tag ' + post.post_type
+    tag.textContent = post.post_type === 'clip' ? '▶ CLIP' : '✦ TIP'
+    const date = document.createElement('span')
+    date.textContent = new Date(post.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+    meta.append(tag, date)
+    const title = document.createElement('h3')
+    title.textContent = post.title
+    const body = document.createElement('p')
+    body.textContent = post.body
+    card.append(meta, title, body)
+
+    if (post.media_path) {
+      const mediaBox = document.createElement('div')
+      mediaBox.className = 'post-media'
+      const mediaUrl = publicMediaUrl(post.media_path)
+      if (/\.(mp4|webm)$/i.test(post.media_path)) {
+        const video = document.createElement('video')
+        video.src = mediaUrl
+        video.controls = true
+        video.preload = 'metadata'
+        video.playsInline = true
+        video.setAttribute('aria-label', 'Community video')
+        mediaBox.append(video)
+      } else {
+        const image = document.createElement('img')
+        image.src = mediaUrl
+        image.alt = 'Community upload'
+        image.loading = 'lazy'
+        mediaBox.append(image)
+      }
+      card.append(mediaBox)
+    }
+
+    const link = validUrl(post.link_url)
+    if (link) {
+      const anchor = document.createElement('a')
+      anchor.className = 'post-link'
+      anchor.href = link
+      anchor.target = '_blank'
+      anchor.rel = 'noopener noreferrer'
+      anchor.textContent = post.post_type === 'clip' ? 'Open clip link ↗' : 'Open reference ↗'
+      card.append(anchor)
+    }
+    const foot = document.createElement('div')
+    foot.className = 'post-foot'
+    const author = document.createElement('span')
+    author.textContent = '●  ' + (post.username || 'Runner')
+    foot.append(author)
+    if (user && user.id === post.user_id) {
+      const del = document.createElement('button')
+      del.className = 'delete'
+      del.textContent = 'Delete'
+      del.onclick = () => deletePost(post.id, post.media_path)
+      foot.append(del)
+    }
+    card.append(foot)
+    root.append(card)
+  }
 }
-async function loadPosts(){
- if(!db){$('posts').textContent='Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in Vercel.';return}
- const {data,error}=await db.from('community_posts').select('id,user_id,username,post_type,title,body,link_url,created_at').order('created_at',{ascending:false}).limit(60)
- if(error){$('posts').textContent='Could not load posts: '+error.message;return}posts=data||[];renderPosts()
+async function loadPosts() {
+  if (!db) { $('posts').textContent = 'Supabase is not configured. Add the VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY variables in Vercel.'; return }
+  const { data, error } = await db.from('community_posts')
+    .select('id,user_id,username,post_type,title,body,link_url,media_path,created_at')
+    .order('created_at', { ascending: false })
+    .limit(60)
+  if (error) { $('posts').textContent = 'Could not load posts: ' + error.message; return }
+  posts = data || []
+  renderPosts()
 }
-async function deletePost(id){if(!user||!db||!confirm('Delete this post?'))return;const {error}=await db.from('community_posts').delete().eq('id',id).eq('user_id',user.id);if(error)alert(error.message);else loadPosts()}
-document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;document.querySelectorAll('[data-filter]').forEach(x=>x.classList.toggle('active',x===b));renderPosts()})
-$('search').oninput=renderPosts
-function openPost(){if(user)modal('post-modal');else modal('auth-modal')}
-$('post-open').onclick=openPost;$('share').onclick=openPost
-$('auth-open').onclick=()=>modal('auth-modal')
-document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>modal(b.dataset.close,false))
-$('post-form').onsubmit=async e=>{
- e.preventDefault();if(!user){modal('post-modal',false);modal('auth-modal');return}
- const raw=$('post-link').value.trim(),link=validUrl(raw);if(raw&&!link)return message('post-message','Please enter a valid http or https link.',true)
- const button=$('publish');button.disabled=true;button.textContent='Publishing…'
- const {error}=await db.from('community_posts').insert({user_id:user.id,username:user.user_metadata?.display_name||user.email?.split('@')[0]||'Runner',post_type:$('post-type').value,title:$('post-title').value.trim(),body:$('post-body').value.trim(),link_url:link})
- button.disabled=false;button.textContent='Publish post'
- if(error)return message('post-message',error.message,true)
- $('post-form').reset();modal('post-modal',false);await loadPosts()
+async function deletePost(id, mediaPath) {
+  if (!user || !db || !confirm('Delete this post?')) return
+  const { error } = await db.from('community_posts').delete().eq('id', id).eq('user_id', user.id)
+  if (error) { alert(error.message); return }
+  if (mediaPath) {
+    const { error: removeError } = await db.storage.from('community-media').remove([mediaPath])
+    if (removeError) console.warn('Post removed, but its file could not be removed:', removeError.message)
+  }
+  await loadPosts()
 }
-$('auth-form').onsubmit=async e=>{
- e.preventDefault();if(!db)return message('auth-message','Supabase is not configured in Vercel yet.',true)
- message('auth-message','Signing in…')
- const {data,error}=await db.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value})
- if(error)return message('auth-message',error.message,true)
- user=data.user;await afterAuth();modal('auth-modal',false)
+document.querySelectorAll('[data-filter]').forEach(button => {
+  button.onclick = () => {
+    filter = button.dataset.filter
+    document.querySelectorAll('[data-filter]').forEach(item => item.classList.toggle('active', item === button))
+    renderPosts()
+  }
+})
+$('search').oninput = renderPosts
+function openPost() {
+  if (user) modal('post-modal')
+  else modal('auth-modal')
 }
-$('signup').onclick=async()=>{
- if(!db)return message('auth-message','Supabase is not configured in Vercel yet.',true)
- const email=$('email').value.trim(),password=$('password').value
- if(!email||password.length<6)return message('auth-message','Enter an email and a password with at least 6 characters.',true)
- message('auth-message','Creating account…')
- const {data,error}=await db.auth.signUp({email,password,options:{data:{display_name:email.split('@')[0].slice(0,24)}}})
- if(error)return message('auth-message',error.message,true)
- if(data.session){user=data.user;await afterAuth();modal('auth-modal',false)}
- else message('auth-message','Account created. Check your email to confirm, then sign in.')
-}
-async function afterAuth(){accountUI();await Promise.all([loadPosts(),loadProgress()])}
-$('signout').onclick=async()=>{const {error}=await db.auth.signOut();if(error)return alert(error.message);user=null;progress={current_level:1,unlocked_level:1,total_jumps:0,best_score:0,coins:0};accountUI();$('best').textContent='0';loadPosts()}
-async function loadProgress(){
- if(!user||!db)return
- const {data,error}=await db.from('parkour_progress').select('current_level,unlocked_level,total_jumps,best_score,coins').eq('user_id',user.id).maybeSingle()
- if(error)return message('save-status',error.message,true)
- if(data)progress={...progress,...data}
- game.best=Number(progress.best_score)||0;$('best').textContent=String(game.best)
-}
-async function saveScore(score,jumps){
- if(!user||!db){$('save-status').textContent='Sign in to save your score.';return}
- progress.best_score=Math.max(Number(progress.best_score)||0,score);progress.total_jumps=(Number(progress.total_jumps)||0)+jumps
- progress.current_level=Math.max(Number(progress.current_level)||1,Math.floor(score/100)+1);progress.unlocked_level=Math.max(Number(progress.unlocked_level)||1,progress.current_level)
- const {error}=await db.from('parkour_progress').upsert({user_id:user.id,...progress,updated_at:new Date().toISOString()},{onConflict:'user_id'})
- if(error)$('save-status').textContent='Could not save: '+error.message
- else{$('best').textContent=String(progress.best_score);$('save-status').textContent='Record saved ✓'}
+$('post-open').onclick = openPost
+$('share').onclick = openPost
+$('auth-open').onclick = () => modal('auth-modal')
+document.querySelectorAll('[data-close]').forEach(button => button.onclick = () => modal(button.dataset.close, false))
+
+$('post-form').onsubmit = async event => {
+  event.preventDefault()
+  if (!user || !db) { modal('post-modal', false); modal('auth-modal'); return }
+  const rawLink = $('post-link').value.trim()
+  const link = validUrl(rawLink)
+  if (rawLink && !link) return message('post-message', 'Please enter a valid http or https link.', true)
+  const file = $('post-file').files?.[0] || null
+  if (file && !isAllowedMedia(file)) return message('post-message', 'Choose a JPG, PNG, WEBP, GIF, MP4, or WEBM file smaller than 25 MB.', true)
+
+  const button = $('publish')
+  button.disabled = true
+  button.textContent = 'Publishing…'
+  let mediaPath = null
+  try {
+    if (file) {
+      mediaPath = user.id + '/' + crypto.randomUUID() + '-' + safeFileName(file.name)
+      const { error: uploadError } = await db.storage.from('community-media').upload(mediaPath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type
+      })
+      if (uploadError) throw uploadError
+    }
+    const username = profile?.username || 'Runner'
+    const { error } = await db.from('community_posts').insert({
+      user_id: user.id,
+      username,
+      post_type: $('post-type').value,
+      title: $('post-title').value.trim(),
+      body: $('post-body').value.trim(),
+      link_url: link,
+      media_path: mediaPath
+    })
+    if (error) throw error
+    $('post-form').reset()
+    modal('post-modal', false)
+    message('post-message', '')
+    await loadPosts()
+  } catch (error) {
+    if (mediaPath) await db.storage.from('community-media').remove([mediaPath])
+    message('post-message', error.message || 'Upload failed. Please try again.', true)
+  } finally {
+    button.disabled = false
+    button.textContent = 'Publish post'
+  }
 }
 
-function makeGame(){
- const c=$('runner'),ctx=c.getContext('2d'),ground=295
- let active=false,score=0,jumps=0,speed=5,last=0,spawn=0,items=[],raf=0,best=0
- const player={x:100,y:ground-40,vy:0,on:true}
- function draw(){
-  const g=ctx.createLinearGradient(0,0,0,360);g.addColorStop(0,'#19264b');g.addColorStop(1,'#3b5788');ctx.fillStyle=g;ctx.fillRect(0,0,900,360)
-  for(let i=0;i<7;i++){let x=(i*160-score*.5%1050+1050)%1050-40;ctx.fillStyle='rgba(255,255,255,.15)';ctx.beginPath();ctx.arc(x,70+i%3*35,19,0,7);ctx.arc(x+24,65+i%3*35,24,0,7);ctx.arc(x+49,75+i%3*35,17,0,7);ctx.fill()}
-  ctx.fillStyle='#192642';ctx.fillRect(0,ground,900,65);ctx.fillStyle='#9be6ff';ctx.fillRect(0,ground,900,4)
-  items.forEach(o=>{ctx.fillStyle='#ff8296';ctx.beginPath();ctx.roundRect(o.x,o.y,o.w,o.h,7);ctx.fill();ctx.fillStyle='#ffc5ce';ctx.fillRect(o.x+6,o.y+7,o.w-12,5)})
-  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(player.x+18,player.y+17,16,Math.PI,0);ctx.arc(player.x+35,player.y+17,16,Math.PI,0);ctx.lineTo(player.x+51,player.y+35);ctx.lineTo(player.x+2,player.y+35);ctx.fill()
-  ctx.fillStyle='#172442';ctx.beginPath();ctx.arc(player.x+27,player.y+16,2.5,0,7);ctx.arc(player.x+38,player.y+16,2.5,0,7);ctx.fill();$('score').textContent=String(Math.floor(score))
- }
- function jump(){if(active&&player.on){player.vy=-13;player.on=false;jumps++}}
- function finish(){active=false;$('run-status').textContent='RUN COMPLETE';$('overlay-title').textContent='Run complete!';$('overlay-copy').textContent='Score: '+Math.floor(score)+' · Jumps: '+jumps+'. Try again?';$('start').textContent='Run again';$('overlay').classList.remove('hidden');best=Math.max(best,Math.floor(score));$('best').textContent=String(best);saveScore(Math.floor(score),jumps)}
- function loop(t){if(!active)return;const d=Math.min((t-(last||t))/16.67,2);last=t;score+=.12*speed*d;speed=Math.min(10,5+score/450);player.vy+=.62*d;player.y+=player.vy*d;if(player.y+40>=ground){player.y=ground-40;player.vy=0;player.on=true}
-  spawn+=d*16.67;if(spawn>Math.max(650,1450-speed*75)){spawn=0;const h=28+Math.random()*24;items.push({x:910,y:ground-h,w:25+Math.random()*18,h})}
-  items.forEach(o=>o.x-=speed*d);items=items.filter(o=>o.x+o.w>0)
-  if(items.some(o=>player.x+43>o.x+3&&player.x+7<o.x+o.w-3&&player.y+36>o.y+3)){draw();finish();return}
-  draw();raf=requestAnimationFrame(loop)
- }
- function start(){cancelAnimationFrame(raf);score=0;jumps=0;speed=5;spawn=0;items=[];player.y=ground-40;player.vy=0;player.on=true;active=true;last=0;$('overlay').classList.add('hidden');$('run-status').textContent='RUNNING';raf=requestAnimationFrame(loop)}
- $('start').onclick=start;$('restart').onclick=start;c.onpointerdown=jump
- window.addEventListener('keydown',e=>{if(['Space','ArrowUp','KeyW'].includes(e.code)&&!$('game-view').classList.contains('hidden')){e.preventDefault();jump()}})
- draw();return{draw,start,get best(){return best},set best(v){best=v;$('best').textContent=String(v)}}
+$('auth-form').onsubmit = async event => {
+  event.preventDefault()
+  if (!db) return message('auth-message', 'Supabase is not configured in Vercel yet.', true)
+  message('auth-message', 'Signing in…')
+  const { data, error } = await db.auth.signInWithPassword({
+    email: $('email').value.trim(),
+    password: $('password').value
+  })
+  if (error) return message('auth-message', error.message, true)
+  session = data.session
+  user = data.user
+  await afterAuth()
+  modal('auth-modal', false)
 }
-game=makeGame();accountUI();loadPosts()
-if(db){db.auth.getSession().then(async({data})=>{user=data.session?.user||null;accountUI();if(user)await afterAuth()});db.auth.onAuthStateChange((_event,session)=>{user=session?.user||null;accountUI();if(user)afterAuth()})}
-else $('posts').textContent='Supabase setup is missing. Configure the VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY environment variables in Vercel.'
+$('signup').onclick = async () => {
+  if (!db) return message('auth-message', 'Supabase is not configured in Vercel yet.', true)
+  const email = $('email').value.trim()
+  const password = $('password').value
+  if (!email || password.length < 6) return message('auth-message', 'Enter an email and a password with at least 6 characters.', true)
+  message('auth-message', 'Creating account…')
+  const { data, error } = await db.auth.signUp({
+    email,
+    password,
+    options: { data: { display_name: email.split('@')[0].slice(0, 24) } }
+  })
+  if (error) return message('auth-message', error.message, true)
+  if (data.session) {
+    session = data.session
+    user = data.user
+    await afterAuth()
+    modal('auth-modal', false)
+  } else {
+    message('auth-message', 'Account created. Check your email to confirm, then sign in.')
+  }
+}
+async function afterAuth() {
+  if (user) await ensureProfile()
+  else profile = null
+  accountUI()
+  await Promise.all([loadPosts(), loadProgress()])
+  if (!$('players-view').classList.contains('hidden')) loadPlayers()
+}
+$('signout').onclick = async () => {
+  const { error } = await db.auth.signOut()
+  if (error) return alert(error.message)
+  user = null
+  session = null
+  profile = null
+  progress = { current_level: 1, unlocked_level: 1, total_jumps: 0, best_score: 0, coins: 0 }
+  accountUI()
+  $('best').textContent = '0'
+  loadPosts()
+  renderOwnProfile()
+}
+async function loadProgress() {
+  if (!user || !db) return
+  const { data, error } = await db.from('parkour_progress')
+    .select('current_level,unlocked_level,total_jumps,best_score,coins')
+    .eq('user_id', user.id)
+    .maybeSingle()
+  if (error) { message('save-status', error.message, true); return }
+  if (data) progress = { ...progress, ...data }
+  game.best = Number(progress.best_score) || 0
+}
+async function saveScore(score, jumps) {
+  if (!user || !db) { $('save-status').textContent = 'Sign in to save your score.'; return }
+  progress.best_score = Math.max(Number(progress.best_score) || 0, score)
+  progress.total_jumps = (Number(progress.total_jumps) || 0) + jumps
+  progress.current_level = Math.max(Number(progress.current_level) || 1, Math.floor(score / 100) + 1)
+  progress.unlocked_level = Math.max(Number(progress.unlocked_level) || 1, progress.current_level)
+  const { error } = await db.from('parkour_progress').upsert({
+    user_id: user.id,
+    ...progress,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'user_id' })
+  if (error) $('save-status').textContent = 'Could not save: ' + error.message
+  else { $('best').textContent = String(progress.best_score); $('save-status').textContent = 'Record saved ✓' }
+}
+
+/* Player search and profile pictures */
+function makeAvatar(path, label) {
+  const wrap = document.createElement('div')
+  wrap.className = 'player-avatar'
+  if (path) {
+    const image = document.createElement('img')
+    image.src = publicMediaUrl(path)
+    image.alt = label + ' avatar'
+    image.loading = 'lazy'
+    wrap.append(image)
+  } else {
+    wrap.textContent = '☁'
+  }
+  return wrap
+}
+function renderOwnProfile() {
+  const root = $('own-profile')
+  if (!root) return
+  root.replaceChildren()
+  if (!user || !profile) {
+    const note = document.createElement('p')
+    note.className = 'muted'
+    note.textContent = 'Sign in to create your public runner profile and upload an avatar.'
+    const signIn = document.createElement('button')
+    signIn.className = 'btn outline'
+    signIn.textContent = 'Sign in'
+    signIn.onclick = () => modal('auth-modal')
+    root.append(note, signIn)
+    return
+  }
+  const row = document.createElement('div')
+  row.className = 'own-profile-row'
+  row.append(makeAvatar(profile.avatar_path, profile.display_name || profile.username))
+  const info = document.createElement('div')
+  const name = document.createElement('strong')
+  name.textContent = profile.display_name || 'Runner'
+  const handle = document.createElement('span')
+  handle.textContent = '@' + profile.username
+  info.append(name, handle)
+  const upload = document.createElement('button')
+  upload.className = 'btn outline'
+  upload.textContent = 'Change avatar'
+  upload.onclick = () => $('avatar-file').click()
+  row.append(info, upload)
+  root.append(row)
+}
+$('avatar-file').onchange = async () => {
+  const file = $('avatar-file').files?.[0]
+  $('avatar-file').value = ''
+  if (!user || !db || !file) return
+  if (!isAllowedMedia(file, true)) return message('player-message', 'Choose a JPG, PNG, WEBP, or GIF image smaller than 5 MB.', true)
+  message('player-message', 'Uploading profile picture…')
+  const path = user.id + '/avatar-' + crypto.randomUUID() + '-' + safeFileName(file.name)
+  const { error: uploadError } = await db.storage.from('community-media').upload(path, file, {
+    cacheControl: '3600',
+    upsert: false,
+    contentType: file.type
+  })
+  if (uploadError) return message('player-message', uploadError.message, true)
+  const oldPath = profile?.avatar_path
+  const { data, error } = await db.from('profiles')
+    .update({ avatar_path: path })
+    .eq('id', user.id)
+    .select('id,username,display_name,avatar_path')
+    .single()
+  if (error) {
+    await db.storage.from('community-media').remove([path])
+    return message('player-message', error.message, true)
+  }
+  profile = data
+  if (oldPath) await db.storage.from('community-media').remove([oldPath])
+  renderOwnProfile()
+  message('player-message', 'Profile picture updated ✓')
+  loadPlayers()
+}
+let playerSearchSequence = 0
+async function loadPlayers() {
+  const root = $('players')
+  if (!root) return
+  const raw = $('player-search').value.trim()
+  const query = raw.replace(/[^a-zA-Z0-9_ -]/g, '').trim().slice(0, 30)
+  if (!query) {
+    root.innerHTML = '<div class="empty">Search by a player username or display name.</div>'
+    return
+  }
+  if (!db) { root.textContent = 'Supabase is not configured.'; return }
+  if (query.length < 2) { root.textContent = 'Type at least 2 characters.'; return }
+  const requestId = ++playerSearchSequence
+  root.textContent = 'Searching players…'
+  const { data, error } = await db.from('profiles')
+    .select('id,username,display_name,avatar_path')
+    .or('username.ilike.%' + query + '%,display_name.ilike.%' + query + '%')
+    .order('username', { ascending: true })
+    .limit(30)
+  if (requestId !== playerSearchSequence) return
+  if (error) { root.textContent = 'Could not search players: ' + error.message; return }
+  root.replaceChildren()
+  if (!data?.length) {
+    const empty = document.createElement('div')
+    empty.className = 'empty'
+    empty.textContent = 'No players found. Try another username.'
+    root.append(empty)
+    return
+  }
+  for (const player of data) {
+    const card = document.createElement('article')
+    card.className = 'player-card'
+    card.append(makeAvatar(player.avatar_path, player.display_name || player.username))
+    const info = document.createElement('div')
+    const name = document.createElement('strong')
+    name.textContent = player.display_name || 'Runner'
+    const handle = document.createElement('span')
+    handle.textContent = '@' + player.username
+    info.append(name, handle)
+    card.append(info)
+    if (user && player.id === user.id) {
+      const self = document.createElement('span')
+      self.className = 'self-tag'
+      self.textContent = 'YOU'
+      card.append(self)
+    }
+    root.append(card)
+  }
+}
+$('player-search').oninput = loadPlayers
+
+/* Quick Run: blocks plus hopping storm sprites */
+function makeGame() {
+  const canvas = $('runner')
+  const ctx = canvas.getContext('2d')
+  const ground = 295
+  let active = false
+  let score = 0
+  let jumps = 0
+  let speed = 5
+  let last = 0
+  let spawn = 0
+  let gameTime = 0
+  let items = []
+  let raf = 0
+  let best = 0
+  const player = { x: 100, y: ground - 40, vy: 0, on: true }
+
+  function draw() {
+    const gradient = ctx.createLinearGradient(0, 0, 0, 360)
+    gradient.addColorStop(0, '#19264b')
+    gradient.addColorStop(1, '#3b5788')
+    ctx.fillStyle = gradient
+    ctx.fillRect(0, 0, 900, 360)
+    for (let i = 0; i < 7; i++) {
+      const x = (i * 160 - score * .5 % 1050 + 1050) % 1050 - 40
+      const y = 70 + i % 3 * 35
+      ctx.fillStyle = 'rgba(255,255,255,.15)'
+      ctx.beginPath()
+      ctx.arc(x, y, 19, 0, 7)
+      ctx.arc(x + 24, y - 5, 24, 0, 7)
+      ctx.arc(x + 49, y + 5, 17, 0, 7)
+      ctx.fill()
+    }
+    ctx.fillStyle = '#192642'
+    ctx.fillRect(0, ground, 900, 65)
+    ctx.fillStyle = '#9be6ff'
+    ctx.fillRect(0, ground, 900, 4)
+
+    for (const item of items) {
+      if (item.kind === 'enemy') {
+        ctx.fillStyle = '#a98aff'
+        ctx.beginPath()
+        ctx.arc(item.x + 17, item.y + 17, 17, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#d8c9ff'
+        ctx.beginPath()
+        ctx.arc(item.x + 11, item.y + 11, 5, 0, Math.PI * 2)
+        ctx.arc(item.x + 24, item.y + 11, 5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#263052'
+        ctx.beginPath()
+        ctx.arc(item.x + 12, item.y + 12, 2, 0, Math.PI * 2)
+        ctx.arc(item.x + 25, item.y + 12, 2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#e1d6ff'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(item.x + 10, item.y + 31)
+        ctx.lineTo(item.x + 17, item.y + 26)
+        ctx.lineTo(item.x + 24, item.y + 31)
+        ctx.stroke()
+      } else {
+        ctx.fillStyle = '#ff8296'
+        ctx.beginPath()
+        ctx.roundRect(item.x, item.y, item.w, item.h, 7)
+        ctx.fill()
+        ctx.fillStyle = '#ffc5ce'
+        ctx.fillRect(item.x + 6, item.y + 7, item.w - 12, 5)
+      }
+    }
+
+    ctx.fillStyle = '#fff'
+    ctx.beginPath()
+    ctx.arc(player.x + 18, player.y + 17, 16, Math.PI, 0)
+    ctx.arc(player.x + 35, player.y + 17, 16, Math.PI, 0)
+    ctx.lineTo(player.x + 51, player.y + 35)
+    ctx.lineTo(player.x + 2, player.y + 35)
+    ctx.fill()
+    ctx.fillStyle = '#172442'
+    ctx.beginPath()
+    ctx.arc(player.x + 27, player.y + 16, 2.5, 0, 7)
+    ctx.arc(player.x + 38, player.y + 16, 2.5, 0, 7)
+    ctx.fill()
+    $('score').textContent = String(Math.floor(score))
+  }
+  function jump() {
+    if (active && player.on) {
+      player.vy = -13
+      player.on = false
+      jumps++
+    }
+  }
+  function finish() {
+    active = false
+    $('run-status').textContent = 'RUN COMPLETE'
+    $('overlay-title').textContent = 'Run complete!'
+    $('overlay-copy').textContent = 'Score: ' + Math.floor(score) + ' · Jumps: ' + jumps + '. Try again?'
+    $('start').textContent = 'Run again'
+    $('overlay').classList.remove('hidden')
+    best = Math.max(best, Math.floor(score))
+    $('best').textContent = String(best)
+    saveScore(Math.floor(score), jumps)
+  }
+  function loop(time) {
+    if (!active) return
+    const delta = Math.min((time - (last || time)) / 16.67, 2)
+    last = time
+    gameTime += delta * 16.67
+    score += .12 * speed * delta
+    speed = Math.min(12, 5 + score / 330)
+    player.vy += .62 * delta
+    player.y += player.vy * delta
+    if (player.y + 40 >= ground) {
+      player.y = ground - 40
+      player.vy = 0
+      player.on = true
+    }
+    spawn += delta * 16.67
+    const spawnDelay = Math.max(610, 1320 - speed * 72)
+    if (spawn > spawnDelay) {
+      spawn = 0
+      const enemyChance = score > 220 ? .56 : score > 75 ? .32 : 0
+      if (Math.random() < enemyChance) {
+        items.push({ kind: 'enemy', x: 920, y: ground - 34, w: 34, h: 34, phase: Math.random() * 6 })
+      } else {
+        const height = 28 + Math.random() * 24
+        items.push({ kind: 'block', x: 920, y: ground - height, w: 25 + Math.random() * 18, h: height })
+      }
+    }
+    for (const item of items) {
+      const movement = item.kind === 'enemy' ? 1.18 : 1
+      item.x -= speed * movement * delta
+      if (item.kind === 'enemy') item.y = ground - item.h - Math.abs(Math.sin(gameTime * .012 + item.phase)) * 18
+    }
+    items = items.filter(item => item.x + item.w > 0)
+    const hit = items.some(item =>
+      player.x + 43 > item.x + 3 &&
+      player.x + 7 < item.x + item.w - 3 &&
+      player.y + 36 > item.y + 3 &&
+      player.y + 4 < item.y + item.h - 2
+    )
+    draw()
+    if (hit) { finish(); return }
+    raf = requestAnimationFrame(loop)
+  }
+  function start() {
+    cancelAnimationFrame(raf)
+    score = 0
+    jumps = 0
+    speed = 5
+    spawn = 0
+    gameTime = 0
+    items = []
+    player.y = ground - 40
+    player.vy = 0
+    player.on = true
+    active = true
+    last = 0
+    $('overlay').classList.add('hidden')
+    $('run-status').textContent = 'RUNNING'
+    raf = requestAnimationFrame(loop)
+  }
+  $('start').onclick = start
+  $('restart').onclick = start
+  canvas.onpointerdown = jump
+  window.addEventListener('keydown', event => {
+    if (['Space', 'ArrowUp', 'KeyW'].includes(event.code) && !$('game-view').classList.contains('hidden')) {
+      event.preventDefault()
+      jump()
+    }
+  })
+  draw()
+  return {
+    draw,
+    start,
+    get best() { return best },
+    set best(value) { best = value; $('best').textContent = String(value) }
+  }
+}
+game = makeGame()
+
+/* Stripe Checkout is test-mode only; live keys are rejected by the API. */
+$('buy-button').onclick = async () => {
+  if (!user || !session?.access_token) { modal('auth-modal'); return }
+  const button = $('buy-button')
+  button.disabled = true
+  button.textContent = 'Opening test checkout…'
+  message('shop-message', '')
+  try {
+    const response = await fetch('/api/create-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+      body: '{}'
+    })
+    const result = await response.json()
+    if (!response.ok) throw new Error(result.error || 'Test checkout is not configured yet.')
+    if (result.url) window.location.assign(result.url)
+    else throw new Error('Checkout did not return a link.')
+  } catch (error) {
+    message('shop-message', error.message, true)
+  } finally {
+    button.disabled = false
+    button.textContent = 'Try test checkout'
+  }
+}
+const paymentState = new URLSearchParams(location.search).get('payment')
+if (paymentState === 'success') message('shop-message', 'Test checkout returned successfully. No in-game item is granted yet.')
+if (paymentState === 'cancel') message('shop-message', 'Checkout was cancelled.')
+
+accountUI()
+loadPosts()
+renderOwnProfile()
+if (db) {
+  db.auth.onAuthStateChange((_event, nextSession) => {
+    session = nextSession
+    user = nextSession?.user || null
+    queueMicrotask(() => afterAuth())
+  })
+  db.auth.getSession().then(async ({ data }) => {
+    session = data.session || null
+    user = session?.user || null
+    await afterAuth()
+  })
+} else {
+  $('posts').textContent = 'Supabase setup is missing. Configure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in Vercel.'
+}
