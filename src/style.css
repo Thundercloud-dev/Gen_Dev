@@ -30,3 +30,47 @@
 .mfa-verify-form{display:flex;flex-wrap:wrap;gap:8px;width:100%}
 .mfa-verify-form input{flex:1;min-width:120px;padding:10px;border:1px solid #ffffff24;border-radius:8px;background:#0d1730;color:#fff}
 .mfa-verify-form button{flex:1}
+
+/* Gendev point missions and future reward preview */
+.points-overview{display:grid;grid-template-columns:minmax(0,1.5fr) 1fr 1fr;gap:12px;margin:8px 0 22px}
+.points-total,.points-stat{display:flex;flex-direction:column;justify-content:center;min-height:115px;padding:20px;border:1px solid #8de4ff27;border-radius:12px;background:linear-gradient(140deg,#1d3154,#151f39)}
+.points-total strong{font-size:43px;line-height:1.15;letter-spacing:-.05em;margin:7px 0 1px;color:#8de4ff}
+.points-total>span{font-size:10px;color:#9eacc8}
+.points-stat{background:#161f39e8;border-color:#ffffff17}
+.points-stat span{font:9px 'DM Mono',monospace;color:#8595b7;letter-spacing:.1em}
+.points-stat strong{font-size:27px;margin-top:10px}
+.points-layout{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:16px;align-items:start}
+.points-section-head{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:2px 0 13px}
+.points-section-head h3,.points-history-card h3{margin:6px 0 0;font-size:18px}
+.points-login-note{padding:12px 15px;margin-bottom:12px;border:1px solid #8de4ff30;border-radius:9px;background:#8de4ff0c;color:#b9d7e6;font-size:11px;line-height:1.7}
+.mission-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.mission-card{display:flex;flex-direction:column;min-height:185px;padding:15px;border:1px solid #ffffff17;border-radius:11px;background:#161f39e8}
+.mission-card-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mission-category{font:9px 'DM Mono',monospace;letter-spacing:.1em;color:#8da0c5}
+.mission-points{font:10px 'DM Mono',monospace;color:#8de4ff}
+.mission-card h4{font-size:14px;margin:14px 0 7px}
+.mission-description{color:#aab6d2;font-size:10px;line-height:1.7;margin:0 0 15px}
+.mission-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto}
+.mission-submit{padding:8px 10px;font-size:10px}
+.mission-status{font:9px 'DM Mono',monospace;padding:6px 8px;border-radius:6px}
+.mission-status.approved{background:#65d9a21a;color:#9ce5bf}
+.mission-status.pending{background:#ffd36a18;color:#ffdc91}
+.mission-status.rejected{background:#ff9aa818;color:#ffabb6}
+.future-prizes{position:sticky;top:15px}
+.future-prizes h3{font-size:20px;margin:8px 0}
+.future-prize-icon{display:grid;place-items:center;width:45px;height:45px;margin:18px 0 12px;border-radius:12px;background:#8de4ff16;color:#8de4ff;font-size:24px}
+.future-status{display:inline-block;margin-top:8px;padding:7px 9px;border:1px solid #ffd36a35;border-radius:6px;background:#ffd36a0e;color:#ffdc91;font:9px 'DM Mono',monospace;letter-spacing:.08em}
+.future-divider{height:1px;background:#ffffff15;margin:17px 0}
+.points-history-card{margin-top:17px}
+.point-history-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 2px;border-bottom:1px solid #ffffff12}
+.point-history-info{display:flex;flex-direction:column;gap:5px}
+.point-history-info strong{font-size:11px}
+.point-history-info span{font:9px 'DM Mono',monospace;color:#8090b1}
+.point-history-result strong{font:10px 'DM Mono',monospace}
+.history-approved{color:#9ce5bf}.history-pending{color:#ffdc91}.history-rejected{color:#ffabb6}
+.point-submit-card{max-height:92vh;overflow:auto}
+.point-submit-reward{color:#8de4ff!important;font-weight:800}
+.point-submit-card textarea{width:100%;resize:vertical;padding:11px 12px;border:1px solid #ffffff20;border-radius:8px;outline:none;background:#101a34;color:white;font:11px Manrope}
+.point-submit-card textarea:focus{border-color:#8de4ff}
+@media(max-width:850px){.points-layout{grid-template-columns:minmax(0,1fr) 230px}}
+@media(max-width:620px){.points-overview{grid-template-columns:1fr 1fr}.points-total{grid-column:1/-1}.points-layout{grid-template-columns:1fr}.mission-grid{grid-template-columns:1fr}.future-prizes{position:static}.points-section-head{align-items:start;flex-direction:column}}
