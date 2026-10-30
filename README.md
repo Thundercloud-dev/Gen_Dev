@@ -76,3 +76,18 @@ where id = '<claim uuid>' and status = 'pending';
 ```
 
 The database trigger fills in the configured mission points. Points currently have no cash value and cannot be redeemed, transferred, or exchanged. Gift cards and other prizes are future ideas only; no redemption or payment flow is enabled.
+
+
+## Points email notifications
+
+New points mission submissions can trigger an email notification to the Gendev review mailbox. The notification includes the submitter's public display name and handle, mission title, proof text, optional evidence link, and claim ID. It does not include the submitter's email address or password.
+
+The notification is sent by the Supabase Edge Function `notify-points-admin`, which verifies the caller's signed-in account and reads only that account's pending claim. Email is sent through Resend. Before notifications can send, configure these production Edge Function secrets in the Supabase Dashboard:
+
+- `RESEND_API_KEY`: a Resend sending API key.
+- `POINTS_NOTIFY_EMAIL`: the Gendev review mailbox.
+- `RESEND_FROM_EMAIL`: a sender address on a domain verified with Resend.
+
+Open [Supabase Edge Function Secrets](https://supabase.com/dashboard/project/qorfczqljrvxfouodhcp/functions/secrets) to add them. Do not put these values in GitHub, browser code, or Vercel `VITE_*` variables. Resend requires the sender domain to be verified before sending to arbitrary recipients. Check your school's email rules before using a school mailbox for automated application notifications.
+
+If the secrets are missing or the provider rejects a message, the claim is still saved in Gendev, and the Points page shows that the email alert failed. Email notifications are only for points mission claims; public chat messages and feed posts are not forwarded.
