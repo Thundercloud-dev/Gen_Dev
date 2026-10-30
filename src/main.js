@@ -73,11 +73,12 @@ async function ensureProfile() {
   else console.warn('Profile creation failed:', createError.message)
 }
 function view(name) {
-  for (const id of ['community', 'players', 'rewards', 'game', 'shop', 'chat', 'speedruns', 'integrations']) {
+  for (const id of ['community', 'players', 'rewards', 'game', 'indie-run', 'shop', 'chat', 'speedruns', 'integrations']) {
     $('' + id + '-view').classList.toggle('hidden', id !== name)
   }
   document.querySelectorAll('.tab').forEach(button => button.classList.toggle('active', button.dataset.view === name))
   if (name === 'game') game.draw()
+  if (name === 'indie-run') loadIndieGames()
   if (name === 'players') { renderOwnProfile(); loadPlayers() }
   if (name === 'rewards') loadPoints()
   if (name === 'chat') startChat()
@@ -981,12 +982,227 @@ $('assistant-form').onsubmit=async e=>{
  finally{assistantBusy=false;button.disabled=false;button.textContent='Send ↗'}
 }
 
-async function afterAuth() {
+
+let indieGames = []
+let indieGenre = 'all'
+
+function httpsUrl(raw) {
+  if (!raw) return null
+  try {
+    const parsed = new URL(raw.trim())
+    return parsed.protocol === 'https:' ? parsed.href : null
+  } catch { return null }
+}
+
+async function loadIndieGames() {
+  const root = $('indie-game-grid')
+  if (!root || !db) {
+    if (root) root.textContent = 'Game listings need the Supabase connection.'
+    return
+  }
+  const { data, error } = await db.from('developer_games')
+    .select('id,user_id,title,description,category,demo_url,project_url,cover_image_url,created_at,updated_at,profiles(username,display_name)')
+    .order('created_at', { ascending: false })
+    .limit(100)
+  if (error) {
+    root.textContent = 'Could not load Indie Run games. Please try again.'
+    console.warn('Indie Run list failed:', error.message)
+    return
+  }
+  indieGames = data || []
+  renderIndieGames()
+}
+
+function renderIndieGames() {
+  const root = $('indie-game-grid')
+  if (!root) return
+  const query = $('indie-search').value.trim().toLowerCase()
+  const filtered = indieGames.filter(game => {
+    const categoryMatch = indieGenre === 'all' || game.category === indieGenre
+    const author = game.profiles?.display_name || game.profiles?.username || ''
+    const searchMatch = !query || [game.title, game.description, author, game.category].join(' ').toLowerCase().includes(query)
+    return categoryMatch && searchMatch
+  })
+  root.replaceChildren()
+  if (!filtered.length) {
+    const empty = document.createElement('div')
+    empty.className = 'empty indie-empty'
+    empty.textContent = indieGames.length ? 'No games match those filters. Try another search or genre.' : 'No games have been listed yet. Be the first developer to share a demo — it costs $0 to list.'
+    root.append(empty)
+    return
+  }
+
+  for (const game of filtered) {
+    const card = document.createElement('article')
+    card.className = 'indie-game-card'
+
+    const art = document.createElement('div')
+    art.className = 'indie-game-art'
+    if (game.cover_image_url) {
+      const image = document.createElement('img')
+      image.src = game.cover_image_url
+      image.alt = game.title + ' cover'
+      image.loading = 'lazy'
+      image.referrerPolicy = 'no-referrer'
+      image.onerror = () => { image.remove(); art.classList.add('indie-game-art-fallback') }
+      art.append(image)
+    } else {
+      art.classList.add('indie-game-art-fallback')
+      const mark = document.createElement('span')
+      mark.textContent = 'INDIE / RUN'
+      art.append(mark)
+    }
+
+    const content = document.createElement('div')
+    content.className = 'indie-game-content'
+    const meta = document.createElement('div')
+    meta.className = 'indie-game-meta'
+    const genre = document.createElement('span')
+    genre.className = 'indie-genre-tag'
+    genre.textContent = game.category.toUpperCase()
+    const date = document.createElement('time')
+    date.dateTime = game.created_at
+    date.textContent = new Date(game.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+    meta.append(genre, date)
+
+    const title = document.createElement('h3')
+    title.textContent = game.title
+    const author = document.createElement('div')
+    author.className = 'indie-game-author'
+    const displayName = game.profiles?.display_name || game.profiles?.username || 'Gendev developer'
+    author.textContent = 'BY ' + displayName
+    const description = document.createElement('p')
+    description.textContent = game.description
+
+    const actions = document.createElement('div')
+    actions.className = 'indie-game-actions'
+    const play = document.createElement('button')
+    play.className = 'btn primary'
+    play.type = 'button'
+    play.textContent = '▶ Play demo'
+    const frameHolder = document.createElement('div')
+    frameHolder.className = 'indie-demo-holder hidden'
+    let opened = false
+    play.onclick = () => {
+      if (opened) {
+        frameHolder.replaceChildren()
+        frameHolder.classList.add('hidden')
+        play.textContent = '▶ Play demo'
+        opened = false
+        return
+      }
+      const frame = document.createElement('iframe')
+      frame.src = game.demo_url
+      frame.title = game.title + ' playable demo'
+      frame.loading = 'lazy'
+      frame.referrerPolicy = 'no-referrer'
+      frame.setAttribute('sandbox', 'allow-scripts allow-forms allow-pointer-lock')
+      frame.setAttribute('allow', 'fullscreen; autoplay; gamepad')
+      frame.setAttribute('allowfullscreen', '')
+      frameHolder.replaceChildren(frame)
+      frameHolder.classList.remove('hidden')
+      play.textContent = 'Hide demo'
+      opened = true
+    }
+    actions.append(play)
+
+    if (game.project_url) {
+      const infoLink = document.createElement('a')
+      infoLink.className = 'indie-external-link'
+      infoLink.href = game.project_url
+      infoLink.target = '_blank'
+      infoLink.rel = 'noopener noreferrer'
+      infoLink.textContent = 'Game page ↗'
+      actions.append(infoLink)
+    }
+    if (user && game.user_id === user.id) {
+      const remove = document.createElement('button')
+      remove.className = 'indie-delete'
+      remove.type = 'button'
+      remove.textContent = 'Remove listing'
+      remove.onclick = async () => {
+        if (!confirm('Remove this game listing from Indie Run?')) return
+        const { error } = await db.from('developer_games').delete().eq('id', game.id).eq('user_id', user.id)
+        if (error) { alert('Could not remove the listing: ' + error.message); return }
+        await loadIndieGames()
+      }
+      actions.append(remove)
+    }
+
+    content.append(meta, title, author, description, actions)
+    card.append(art, content, frameHolder)
+    root.append(card)
+  }
+}
+
+function openIndieGameForm() {
+  if (!user || !db) {
+    setAuthMode('signin')
+    modal('auth-modal')
+    return
+  }
+  $('indie-game-form').reset()
+  message('indie-game-message', '')
+  modal('indie-game-modal')
+  $('indie-title').focus()
+}
+
+$('indie-submit-open').onclick = openIndieGameForm
+$('indie-search').oninput = renderIndieGames
+$('indie-filter').onchange = () => {
+  indieGenre = $('indie-filter').value
+  renderIndieGames()
+}
+
+$('indie-game-form').onsubmit = async event => {
+  event.preventDefault()
+  if (!user || !db) return openIndieGameForm()
+  const title = $('indie-title').value.trim()
+  const description = $('indie-description').value.trim()
+  const category = $('indie-category').value
+  const demoRaw = $('indie-demo-url').value.trim()
+  const projectRaw = $('indie-project-url').value.trim()
+  const coverRaw = $('indie-cover-url').value.trim()
+  const demoUrl = httpsUrl(demoRaw)
+  const projectUrl = projectRaw ? httpsUrl(projectRaw) : null
+  const coverUrl = coverRaw ? httpsUrl(coverRaw) : null
+  if (title.length < 3 || title.length > 70) return message('indie-game-message', 'Game title must be 3–70 characters.', true)
+  if (description.length < 20 || description.length > 700) return message('indie-game-message', 'Description must be 20–700 characters.', true)
+  if (!demoUrl) return message('indie-game-message', 'Add a valid public HTTPS demo URL.', true)
+  if (projectRaw && !projectUrl) return message('indie-game-message', 'Game page must be a valid HTTPS URL.', true)
+  if (coverRaw && !coverUrl) return message('indie-game-message', 'Cover image must be a valid HTTPS URL.', true)
+
+  const button = $('indie-game-submit')
+  button.disabled = true
+  button.textContent = 'Publishing…'
+  try {
+    const { error } = await db.from('developer_games').insert({
+      user_id: user.id,
+      title,
+      description,
+      category,
+      demo_url: demoUrl,
+      project_url: projectUrl,
+      cover_image_url: coverUrl
+    })
+    if (error) throw error
+    modal('indie-game-modal', false)
+    await loadIndieGames()
+  } catch (error) {
+    message('indie-game-message', error.message || 'Could not publish the game listing.', true)
+  } finally {
+    button.disabled = false
+    button.textContent = 'Publish free listing'
+  }
+}
+
+
+async function afterAuth() {async function afterAuth() {
   if (user) await ensureProfile()
   else profile = null
   accountUI()
   await renderMfaSettings()
-  await Promise.all([loadPosts(), loadProgress(), loadPoints(), loadHomeStats(), loadReviews()])
+  await Promise.all([loadPosts(), loadProgress(), loadPoints(), loadHomeStats(), loadReviews(), loadIndieGames()])
   if (!$('players-view').classList.contains('hidden')) loadPlayers()
 }
 $('signout').onclick = async () => {
@@ -1589,3 +1805,4 @@ $('buy-button').onclick = () => modal('donation-info-modal')
 void loadPosts()
 void loadHomeStats()
 void loadReviews()
+void loadIndieGames()

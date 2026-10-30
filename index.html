@@ -19,6 +19,7 @@
     <button class="tab" data-view="speedruns">Speedruns</button>
     <button class="tab" data-view="integrations">Integrations</button>
     <button class="tab" data-view="game">Quick Run ⚡</button>
+    <button class="tab" data-view="indie-run">Indie Run 🎮</button>
   </nav>
   <div class="account"><span id="account">Browsing as guest</span><button id="auth-open" class="btn outline">Sign in</button><button id="signout" class="btn outline hidden">Sign out</button></div>
 </header>
@@ -207,7 +208,31 @@
   </div>
 </main>
 
-<main id="shop-view" class="hidden">
+
+<main id="indie-run-view" class="hidden">
+  <div class="section-head indie-section-head">
+    <div><div class="eyebrow">THE COMMUNITY GAME SHELF</div><h2>Indie Run</h2><p>Discover demos made by Gendev developers. Browse, play, and share what you're building.</p></div>
+    <button class="btn outline" data-goto="community">← Back to community</button>
+  </div>
+  <section class="indie-free-banner">
+    <div class="indie-free-mark">$0</div>
+    <div class="indie-free-copy"><strong>Free to list. Made by the community.</strong><span>There is no Gendev listing fee for sharing your game demo.</span></div>
+    <button id="indie-submit-open" class="btn primary">＋ Submit your game</button>
+  </section>
+  <div class="indie-discovery-head">
+    <div><div class="eyebrow">FIND YOUR NEXT PLAY</div><h3>Games from developers</h3><p>Try a demo in a sandboxed preview or open the developer's demo page.</p></div>
+    <div class="indie-discovery-controls">
+      <input id="indie-search" class="search" type="search" maxlength="80" placeholder="Search games or developers…" aria-label="Search Indie Run games">
+      <select id="indie-filter" class="search" aria-label="Filter games by genre">
+        <option value="all">All genres</option><option value="platformer">Platformer</option><option value="adventure">Adventure</option><option value="puzzle">Puzzle</option><option value="strategy">Strategy</option><option value="simulation">Simulation</option><option value="arcade">Arcade</option><option value="horror">Horror</option><option value="other">Other</option>
+      </select>
+    </div>
+  </div>
+  <div id="indie-game-grid" class="indie-game-grid"><div class="empty">Loading community games…</div></div>
+  <p class="indie-hosting-note">Gendev listings are free. Developers host their own demos on a public HTTPS page; Gendev links to them and does not upload or store game builds.</p>
+</main>
+
+<main id="shop-view"<main id="shop-view" class="hidden">
   <div class="section-head"><div><div class="eyebrow">COSMETIC STORE</div><h2>Runner shop</h2><p>Optional cosmetic extras for your cloud runner.</p></div><button class="btn outline" data-goto="community">← Back to community</button></div>
   <section class="shop-grid">
     <article class="shop-card">
@@ -269,7 +294,37 @@
 </div>
 
 
-<div id="review-modal" class="modal hidden"><div class="backdrop" data-close="review-modal"></div><section class="modal-card review-modal-card" role="dialog" aria-modal="true" aria-labelledby="review-title"><button class="close" data-close="review-modal" aria-label="Close">×</button><div class="eyebrow">COMMUNITY REVIEW</div><h2 id="review-title">Share your Gendev experience.</h2><p>One review per account. You can update it later.</p><form id="review-form"><label for="review-rating">Your rating</label><select id="review-rating" required><option value="5">5 — Loved it</option><option value="4">4 — Really good</option><option value="3">3 — It's good</option><option value="2">2 — Needs work</option><option value="1">1 — Not for me</option></select><label for="review-country">Country or region <small>(optional)</small></label><input id="review-country" type="text" maxlength="56" autocomplete="country-name" placeholder="Choose what you want to share"><label for="review-text">Your review</label><textarea id="review-text" rows="4" minlength="15" maxlength="500" required placeholder="What do you like, use, or think could be better?"></textarea><p class="auth-hint">Your review and chosen country label will be public. Share a country only—never a street address, school, phone number, or private contact details.</p><button id="review-submit" class="btn primary full" type="submit">Publish review</button><div id="review-message" class="message" role="status" aria-live="polite"></div></form></section></div>
+
+<div id="indie-game-modal" class="modal hidden">
+  <div class="backdrop" data-close="indie-game-modal"></div>
+  <section class="modal-card indie-game-modal-card" role="dialog" aria-modal="true" aria-labelledby="indie-game-title">
+    <button class="close" data-close="indie-game-modal" aria-label="Close">×</button>
+    <div class="eyebrow">FREE DEVELOPER LISTING</div>
+    <h2 id="indie-game-title">Put your game on Indie Run.</h2>
+    <p>Share a public demo link so the community can try what you're making. Gendev charges $0 to list a game.</p>
+    <form id="indie-game-form">
+      <label for="indie-title">Game title</label>
+      <input id="indie-title" type="text" minlength="3" maxlength="70" required placeholder="Your game's name">
+      <label for="indie-category">Genre</label>
+      <select id="indie-category" required>
+        <option value="platformer">Platformer</option><option value="adventure">Adventure</option><option value="puzzle">Puzzle</option><option value="strategy">Strategy</option><option value="simulation">Simulation</option><option value="arcade">Arcade</option><option value="horror">Horror</option><option value="other">Other</option>
+      </select>
+      <label for="indie-description">About your game</label>
+      <textarea id="indie-description" rows="4" minlength="20" maxlength="700" required placeholder="What is the game about? What can people try in the demo?"></textarea>
+      <label for="indie-demo-url">Playable demo URL <small>(required, HTTPS)</small></label>
+      <input id="indie-demo-url" type="url" required maxlength="500" placeholder="https://your-demo.example">
+      <label for="indie-project-url">Game page or more information <small>(optional)</small></label>
+      <input id="indie-project-url" type="url" maxlength="500" placeholder="https://…">
+      <label for="indie-cover-url">Cover image URL <small>(optional)</small></label>
+      <input id="indie-cover-url" type="url" maxlength="500" placeholder="https://…">
+      <p class="auth-hint">Only list games you made or have permission to share. Your listing is public. Gendev's listing fee is $0; you provide and host the playable demo link. Do not include personal contact details.</p>
+      <button id="indie-game-submit" class="btn primary full" type="submit">Publish free listing</button>
+      <div id="indie-game-message" class="message" role="status" aria-live="polite"></div>
+    </form>
+  </section>
+</div>
+
+<div id="review-modal"<div id="review-modal" class="modal hidden"><div class="backdrop" data-close="review-modal"></div><section class="modal-card review-modal-card" role="dialog" aria-modal="true" aria-labelledby="review-title"><button class="close" data-close="review-modal" aria-label="Close">×</button><div class="eyebrow">COMMUNITY REVIEW</div><h2 id="review-title">Share your Gendev experience.</h2><p>One review per account. You can update it later.</p><form id="review-form"><label for="review-rating">Your rating</label><select id="review-rating" required><option value="5">5 — Loved it</option><option value="4">4 — Really good</option><option value="3">3 — It's good</option><option value="2">2 — Needs work</option><option value="1">1 — Not for me</option></select><label for="review-country">Country or region <small>(optional)</small></label><input id="review-country" type="text" maxlength="56" autocomplete="country-name" placeholder="Choose what you want to share"><label for="review-text">Your review</label><textarea id="review-text" rows="4" minlength="15" maxlength="500" required placeholder="What do you like, use, or think could be better?"></textarea><p class="auth-hint">Your review and chosen country label will be public. Share a country only—never a street address, school, phone number, or private contact details.</p><button id="review-submit" class="btn primary full" type="submit">Publish review</button><div id="review-message" class="message" role="status" aria-live="polite"></div></form></section></div>
 <aside id="assistant-dock" class="assistant-dock" aria-label="Gendev AI assistant">
  <section id="assistant-panel" class="assistant-panel hidden" role="dialog" aria-label="Ask the Gendev assistant">
   <div class="assistant-topbar"><img src="/images/gendev-mascot.webp" alt="" class="assistant-avatar"><div class="assistant-heading"><strong>Gendev helper</strong><span>AI assistant · here to help</span></div><button id="assistant-close" class="assistant-close" type="button" aria-label="Close assistant">×</button></div>

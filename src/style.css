@@ -181,3 +181,39 @@
 .assistant-disclaimer{padding:0 13px 11px;background:#151f38;color:#7284a5;font-size:8px;line-height:1.55}
 @media(max-width:700px){.review-grid{grid-template-columns:1fr 1fr}.review-summary-note{margin-left:0;flex-basis:100%}}
 @media(max-width:620px){.review-grid{grid-template-columns:1fr}.review-section-heading{align-items:flex-start}.assistant-dock{right:10px;bottom:10px}.assistant-panel{width:calc(100vw - 20px);height:min(570px,calc(100vh - 92px))}}
+
+/* Indie Run: free developer game directory */
+.indie-section-head{align-items:flex-end}
+.indie-free-banner{display:flex;align-items:center;gap:16px;margin:0 0 28px;padding:16px 18px;border:1px solid #8de4ff30;border-radius:12px;background:linear-gradient(120deg,#172d49,#17213b)}
+.indie-free-mark{display:grid;place-items:center;flex:0 0 54px;height:54px;border:1px solid #8de4ff55;border-radius:11px;background:#8de4ff12;color:#8de4ff;font-size:23px;font-weight:900;letter-spacing:-.06em}
+.indie-free-copy{display:flex;flex:1;flex-direction:column;gap:5px}
+.indie-free-copy strong{font-size:13px}.indie-free-copy span{color:#9eacc9;font-size:10px;line-height:1.6}
+.indie-discovery-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:0 0 15px}
+.indie-discovery-head h3{margin:7px 0 4px;font-size:22px;letter-spacing:-.04em}
+.indie-discovery-head p{margin:0;color:#96a5c2;font-size:10px;line-height:1.7}
+.indie-discovery-controls{display:flex;gap:8px}.indie-discovery-controls .search{width:205px}
+.indie-game-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+.indie-game-card{min-width:0;overflow:hidden;border:1px solid #ffffff19;border-radius:12px;background:#151f38}
+.indie-game-art{height:148px;display:grid;place-items:center;overflow:hidden;background:#202d4b}
+.indie-game-art img{width:100%;height:100%;object-fit:cover}
+.indie-game-art-fallback{background:linear-gradient(135deg,#26395d,#17213b 60%,#25334d)}
+.indie-game-art-fallback span{color:#8de4ff;font:10px 'DM Mono',monospace;letter-spacing:.2em}
+.indie-game-content{padding:15px}
+.indie-game-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;color:#8292b0;font:8px 'DM Mono',monospace}
+.indie-genre-tag{padding:5px 7px;border:1px solid #8de4ff30;border-radius:5px;color:#8de4ff;letter-spacing:.08em}
+.indie-game-content h3{margin:12px 0 4px;font-size:17px;letter-spacing:-.03em;overflow-wrap:anywhere}
+.indie-game-author{color:#8c9cba;font:8px 'DM Mono',monospace;letter-spacing:.08em}
+.indie-game-content p{min-height:52px;margin:10px 0 14px;color:#aebbd3;font-size:10px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}
+.indie-game-actions{display:flex;align-items:center;flex-wrap:wrap;gap:9px}
+.indie-game-actions .btn{padding:9px 11px}
+.indie-external-link{color:#8de4ff;font-size:9px;font-weight:800;text-decoration:none}
+.indie-delete{margin-left:auto;border:0;background:none;color:#8996b0;font-size:9px}
+.indie-demo-holder{padding:10px;background:#0d1425;border-top:1px solid #ffffff17}
+.indie-demo-holder iframe{display:block;width:100%;height:310px;border:1px solid #ffffff20;border-radius:8px;background:#0a1020}
+.indie-empty{grid-column:1/-1}
+.indie-hosting-note{margin:17px 0 0;color:#7586a7;font-size:9px;line-height:1.7}
+.indie-game-modal-card{max-height:92vh;overflow:auto}
+.indie-game-modal-card textarea{width:100%;resize:vertical;padding:11px 12px;border:1px solid #ffffff20;border-radius:8px;outline:none;background:#101a34;color:white;font:11px Manrope}
+.indie-game-modal-card textarea:focus{border-color:#8de4ff}
+@media(max-width:900px){.indie-game-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.indie-discovery-head{align-items:flex-start;flex-direction:column}.indie-discovery-controls{width:100%}.indie-discovery-controls .search{flex:1;width:auto}}
+@media(max-width:620px){nav{overflow-x:auto;justify-content:flex-start;gap:16px}.tab{flex:0 0 auto}.indie-free-banner{align-items:flex-start;flex-wrap:wrap}.indie-free-mark{flex-basis:46px;height:46px}.indie-free-copy{min-width:calc(100% - 70px)}.indie-free-banner>.btn{width:100%}.indie-game-grid{grid-template-columns:1fr}.indie-discovery-controls{flex-direction:column}.indie-discovery-controls .search{width:100%}.indie-demo-holder iframe{height:240px}}

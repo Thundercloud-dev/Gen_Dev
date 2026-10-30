@@ -103,3 +103,10 @@ The homepage review wall reads real rows from `public.community_reviews`. Each s
 
 ## Gendev AI helper
 The floating mascot opens a signed-in-only helper for Gendev, beginner development, creator workflows, and image feedback. Image uploads are resized in the browser. Video uploads are sampled into up to six still frames; the assistant receives neither the original video nor its audio and cannot prove whether a clip is AI-generated. The API route uses Vercel AI Gateway and requires a server-only `AI_GATEWAY_API_KEY` environment variable. Never put this key in a `VITE_*` variable. Each signed-in member is limited to 15 requests per day.
+
+
+## Indie Run game directory
+
+The navigation includes **Indie Run**, a public directory for community developer demos. Signed-in members can list games for a **$0 Gendev listing fee** by providing a title, genre, description, and public HTTPS demo link. A project page and cover image are optional. Owners can remove their own listings. Public visitors can browse and search games, filter by genre, and open demos in a sandboxed preview or a new tab.
+
+Gendev lists the demo link but does not upload or host developers' game builds. Developers must host their playable demo on their own public HTTPS page or a hosting provider. Only list games you created or have permission to share. The directory uses row-level security so public visitors can read listings while signed-in developers can create or delete only their own entries.
