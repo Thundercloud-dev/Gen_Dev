@@ -106,6 +106,7 @@
     <section>
       <div class="points-section-head"><div><div class="eyebrow">AVAILABLE MISSIONS</div><h3>Pick a mission</h3></div><span class="hint">One approved reward per mission</span></div>
       <div id="points-login-note" class="points-login-note hidden"></div>
+      <div id="points-notification-status" class="points-notification-status hidden" role="status" aria-live="polite"></div>
       <div id="point-missions" class="mission-grid"><div class="empty">Loading missions…</div></div>
       <section class="side-card points-history-card"><div class="eyebrow">YOUR ACTIVITY</div><h3>Points history</h3><div id="points-history"><div class="empty">Your mission activity will appear here.</div></div></section>
     </section>
@@ -205,7 +206,7 @@
       <textarea id="point-proof" rows="4" minlength="10" maxlength="800" required placeholder="Explain what you did. Add the score or post details if relevant."></textarea>
       <label for="point-proof-url">Evidence link (optional)</label>
       <input id="point-proof-url" type="url" maxlength="500" placeholder="https://…">
-      <p class="auth-hint">Use a link that is safe to share publicly. Do not include passwords, private messages, or personal contact details. Points are added only after review.</p>
+      <p class="auth-hint">Your mission details and evidence link will be emailed to the Gendev review mailbox. Do not include passwords, private messages, or personal contact details. Points are added only after review.</p>
       <button id="point-submit-button" class="btn primary full" type="submit">Send for review</button>
       <div id="point-submit-message" class="message" role="status" aria-live="polite"></div>
     </form>
