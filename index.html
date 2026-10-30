@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#10142b" />
+    <meta name="description" content="Speedrunners Online - a cloud-powered platform runner." />
+    <title>Speedrunners Online</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Speedrunners Online home">
+          <span class="brand-mark">☁</span>
+          <span>SPEEDRUNNERS <b>ONLINE</b></span>
+        </a>
+        <div class="account-area">
+          <span id="account-label" class="account-label">Playing as Guest</span>
+          <button id="signout-button" class="button button-quiet hidden" type="button">Sign out</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero">
+          <div>
+            <p class="eyebrow">RUN • JUMP • BEAT YOUR BEST</p>
+            <h1>Keep moving.<br /><span>Beat your record.</span></h1>
+            <p class="hero-copy">A quick platform-runner starter. Sign in to save your progress between visits.</p>
+          </div>
+          <div class="stats-row">
+            <div class="stat"><span>BEST SCORE</span><strong id="best-score">0</strong></div>
+            <div class="stat"><span>COINS</span><strong id="coin-count">0</strong></div>
+            <div class="stat"><span>LEVEL</span><strong id="level-number">1</strong></div>
+          </div>
+        </section>
+
+        <section class="game-layout">
+          <div class="game-panel">
+            <div class="game-heading">
+              <div><p class="eyebrow">THE RUN</p><h2>Cloud Dash</h2></div>
+              <div class="live-score">SCORE <strong id="score">0</strong></div>
+            </div>
+            <div class="canvas-wrap">
+              <canvas id="game" width="900" height="420" aria-label="Cloud Dash platform runner"></canvas>
+              <div id="game-overlay" class="game-overlay">
+                <div class="overlay-card">
+                  <div class="cloud-icon">☁</div>
+                  <h3 id="overlay-title">Ready, runner?</h3>
+                  <p id="overlay-copy">Jump over the blocks and collect the stars.</p>
+                  <button id="start-button" class="button button-primary" type="button">Start running</button>
+                </div>
+              </div>
+            </div>
+            <div class="game-footer">
+              <span>SPACE / ↑ / TAP TO JUMP</span>
+              <span id="run-status">READY</span>
+              <button id="restart-button" class="text-button" type="button">Restart</button>
+            </div>
+          </div>
+
+          <aside class="side-column">
+            <section class="side-card auth-card" id="auth-card">
+              <p class="eyebrow">YOUR ACCOUNT</p>
+              <h2>Save your runs</h2>
+              <p class="muted">Create an account or sign in to sync your best score, coins, jumps, and unlocked level.</p>
+              <form id="auth-form">
+                <label for="email">Email</label>
+                <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password" autocomplete="current-password" minlength="6" placeholder="At least 6 characters" required />
+                <div class="auth-actions">
+                  <button class="button button-primary" id="signin-button" type="submit">Sign in</button>
+                  <button class="button button-secondary" id="signup-button" type="button">Create account</button>
+                </div>
+              </form>
+              <p id="auth-message" class="message" role="status"></p>
+            </section>
+
+            <section class="side-card progress-card">
+              <p class="eyebrow">SAVED PROGRESS</p>
+              <h2>Your stats</h2>
+              <div class="progress-line"><span>Total jumps</span><strong id="jump-count">0</strong></div>
+              <div class="progress-line"><span>Unlocked level</span><strong id="unlocked-level">1</strong></div>
+              <div class="progress-line"><span>Save status</span><strong id="save-status">Guest only</strong></div>
+              <p class="tiny-note">Progress saves automatically after a run when you are signed in.</p>
+            </section>
+          </aside>
+        </section>
+      </main>
+      <footer>Speedrunners Online <span>•</span> Starter build</footer>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
