@@ -88,7 +88,9 @@ function view(name) {
 }
 document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => view(button.dataset.view)))
 document.querySelectorAll('[data-goto]').forEach(button => button.addEventListener('click', () => view(button.dataset.goto)))
-$('explore').onclick = () => $('community-view').scrollIntoView({ behavior: 'smooth' })
+$('explore').onclick = () => $('home-latest').scrollIntoView({ behavior: 'smooth' })
+$('home-view-feed').onclick = () => $('feed-section').scrollIntoView({ behavior: 'smooth' })
+$('home-share-project').onclick = openPost
 $('year').textContent = new Date().getFullYear()
 
 function validUrl(raw) {
@@ -185,6 +187,70 @@ function renderPosts() {
     root.append(card)
   }
 }
+
+function renderHomeLatest() {
+  const root = $('home-latest-posts')
+  if (!root) return
+  root.replaceChildren()
+  const latest = posts.slice(0, 3)
+  if (!latest.length) {
+    const empty = document.createElement('div')
+    empty.className = 'empty'
+    empty.textContent = posts.length ? 'No posts to show yet.' : 'The feed is quiet right now. Be the first to share a project, clip, or question.'
+    root.append(empty)
+    return
+  }
+  for (const post of latest) {
+    const card = document.createElement('article')
+    card.className = 'home-latest-card'
+    const top = document.createElement('div')
+    top.className = 'home-latest-meta'
+    const tag = document.createElement('span')
+    tag.className = 'tag ' + post.post_type
+    tag.textContent = ({clip:'CLIP',video:'VIDEO',tip:'TIP',project:'PROJECT',discussion:'DISCUSSION',defeat:'DEFEAT'})[post.post_type] || post.post_type.toUpperCase()
+    const date = document.createElement('time')
+    date.dateTime = post.created_at
+    date.textContent = new Date(post.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    top.append(tag, date)
+    const title = document.createElement('h3')
+    title.textContent = post.title
+    const body = document.createElement('p')
+    const excerpt = String(post.body || '')
+    body.textContent = excerpt.length > 120 ? excerpt.slice(0, 117).trimEnd() + '…' : excerpt
+    const bottom = document.createElement('div')
+    bottom.className = 'home-latest-byline'
+    bottom.textContent = 'Posted by ' + (post.username || 'Gendev member')
+    card.append(top, title, body, bottom)
+    if (post.media_path) {
+      const media = document.createElement('span')
+      media.className = 'home-latest-attachment'
+      media.textContent = /\.(mp4|webm)$/i.test(post.media_path) ? '▶ Video attached' : '▧ Image attached'
+      card.append(media)
+    }
+    root.append(card)
+  }
+}
+async function loadHomeStats() {
+  const ids = ['home-member-count', 'home-post-count', 'home-mission-count']
+  if (!db) {
+    ids.forEach(id => { if ($(id)) $(id).textContent = '—' })
+    return
+  }
+  try {
+    const [members, postsResult, missions] = await Promise.all([
+      db.from('profiles').select('id', { count: 'exact', head: true }),
+      db.from('community_posts').select('id', { count: 'exact', head: true }),
+      db.from('point_missions').select('id', { count: 'exact', head: true }).eq('active', true)
+    ])
+    $('home-member-count').textContent = members.error ? '—' : Number(members.count || 0).toLocaleString()
+    $('home-post-count').textContent = postsResult.error ? '—' : Number(postsResult.count || 0).toLocaleString()
+    $('home-mission-count').textContent = missions.error ? '—' : Number(missions.count || 0).toLocaleString()
+  } catch (error) {
+    console.warn('Could not load Gendev home statistics:', error)
+    ids.forEach(id => { if ($(id)) $(id).textContent = '—' })
+  }
+}
+
 async function loadPosts() {
   if (!db) { $('posts').textContent = 'Supabase is not configured. Add the VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY variables in Vercel.'; return }
   const { data, error } = await db.from('community_posts')
@@ -194,6 +260,7 @@ async function loadPosts() {
   if (error) { $('posts').textContent = 'Could not load posts: ' + error.message; return }
   posts = data || []
   renderPosts()
+  renderHomeLatest()
 }
 async function deletePost(id, mediaPath) {
   if (!user || !db || !confirm('Delete this post?')) return
@@ -821,7 +888,7 @@ async function afterAuth() {
   else profile = null
   accountUI()
   await renderMfaSettings()
-  await Promise.all([loadPosts(), loadProgress(), loadPoints()])
+  await Promise.all([loadPosts(), loadProgress(), loadPoints(), loadHomeStats()])
   if (!$('players-view').classList.contains('hidden')) loadPlayers()
 }
 $('signout').onclick = async () => {
@@ -1420,3 +1487,6 @@ function setupIntegrations() {
 $('speedrun-search-button').onclick = () => loadSpeedrunGames($('speedrun-search').value)
 $('donations-learn-more').onclick = () => modal('donation-info-modal')
 $('buy-button').onclick = () => modal('donation-info-modal')
+
+void loadPosts()
+void loadHomeStats()
