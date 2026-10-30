@@ -54,6 +54,28 @@
   </div>
 </main>
 
+<main id="chat-view" class="hidden">
+  <div class="section-head"><div><div class="eyebrow">LIVE COMMUNITY</div><h2>Gendev chat</h2><p>Drop into a topic room, share progress, or tell the story of your greatest defeat.</p></div><button class="btn outline" data-goto="community">← Feed</button></div>
+  <div class="chat-layout">
+    <aside class="chat-rooms">
+      <div class="eyebrow">CHAT ROOMS</div>
+      <button class="chat-room active" data-chat-channel="general"># General</button>
+      <button class="chat-room" data-chat-channel="developers"># Developers</button>
+      <button class="chat-room" data-chat-channel="creators"># Creators &amp; YouTubers</button>
+      <button class="chat-room" data-chat-channel="gaming"># Gaming</button>
+      <button class="chat-room" data-chat-channel="speedrunning"># Speedrunning</button>
+      <button class="chat-room" data-chat-channel="defeats"># Greatest defeats</button>
+      <p class="hint">Be respectful. Do not share private contact details. Use Report if a message needs moderator attention.</p>
+    </aside>
+    <section class="chat-panel">
+      <div class="chat-title"><strong id="chat-channel-title">General</strong><span>Public room · sign in to send a message</span></div>
+      <div id="chat-messages" class="chat-messages"><div class="empty">Loading chat…</div></div>
+      <form id="chat-form" class="chat-compose"><textarea id="chat-input" rows="2" maxlength="800" placeholder="Write a message…" aria-label="Chat message"></textarea><button id="chat-send" class="btn primary">Send</button></form>
+      <div id="chat-status" class="message"></div>
+    </section>
+  </div>
+</main>
+
 <main id="players-view" class="hidden">
   <div class="section-head"><div><div class="eyebrow">RUNNER DIRECTORY</div><h2>Find players</h2><p>Search public usernames and display names.</p></div><button class="btn outline" data-goto="community">← Community</button></div>
   <section class="side-card own-profile-panel">
@@ -64,6 +86,24 @@
   </section>
   <div class="player-search-row"><input id="player-search" class="search player-search" type="search" placeholder="Search @username or display name…" aria-label="Search players"></div>
   <div id="players"><div class="empty">Search by a player username or display name.</div></div>
+</main>
+
+<main id="speedruns-view" class="hidden">
+  <div class="section-head"><div><div class="eyebrow">SPEEDRUN DATA</div><h2>Find a speedrun leaderboard</h2><p>Search public game data from Speedrun.com using its official API.</p></div><button class="btn outline" data-goto="community">← Feed</button></div>
+  <div class="speedrun-search-row"><input id="speedrun-search" class="search player-search" type="search" placeholder="Search a game (e.g. Celeste, Minecraft)…" aria-label="Search games"><button id="speedrun-search-button" class="btn primary">Search</button></div>
+  <div id="speedrun-results"><div class="empty">Search for a game to find its Speedrun.com leaderboard.</div></div>
+  <p class="hint">Gendev is an independent community project and is not endorsed by Speedrun.com.</p>
+</main>
+
+<main id="integrations-view" class="hidden">
+  <div class="section-head"><div><div class="eyebrow">CONNECTED COMMUNITIES</div><h2>Integrations</h2><p>Bring your development tools, creator channels, and speedrun communities together.</p></div><button class="btn outline" data-goto="community">← Feed</button></div>
+  <div class="integration-grid">
+    <section id="discord-integration" class="side-card integration-card"><h3>Discord community</h3><p>Discord widget and invite appear when the server settings are configured.</p></section>
+    <section class="side-card integration-card"><div class="eyebrow">DEVELOPERS</div><h3>GitHub</h3><p>Share repositories, open-source projects, releases, and collaboration ideas.</p><a class="integration-link" href="https://github.com/" target="_blank" rel="noopener noreferrer">Open GitHub ↗</a></section>
+    <section class="side-card integration-card"><div class="eyebrow">VIDEO CREATORS</div><h3>YouTube</h3><p>Share videos, gaming moments, tutorials, and creator channels in your Gendev posts.</p><a class="integration-link" href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer">Open YouTube ↗</a></section>
+    <section class="side-card integration-card"><div class="eyebrow">SPEEDRUNNING</div><h3>Speedrun.com</h3><p>Search public game leaderboards through the official API.</p><button class="btn outline" data-goto="speedruns">Search games</button></section>
+    <section class="side-card integration-card"><div class="eyebrow">CREATOR SUPPORT</div><h3>Stripe Connect</h3><p>Creator donations are planned. Payout onboarding and payment processing are not active yet.</p><button id="donations-learn-more" class="btn outline">How donations will work</button></section>
+  </div>
 </main>
 
 <main id="game-view" class="hidden">
