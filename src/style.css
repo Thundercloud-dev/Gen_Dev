@@ -135,3 +135,22 @@
 .home-points-card{background:linear-gradient(145deg,#1b3340,#151f36)}
 #feed-section{scroll-margin-top:20px}
 #home-latest{scroll-margin-top:20px}
+
+@media(max-width:900px){
+  .home-hero{grid-template-columns:minmax(0,1fr) minmax(280px,.85fr);gap:24px}
+  .home-explore-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:620px){
+  .home-hero{grid-template-columns:1fr;gap:20px;min-height:0;padding:30px 0 26px}
+  .hero-copy h1{font-size:44px}
+  .hero-board{min-height:270px}
+  .home-stat-strip{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:32px}
+  .home-stat-intro{grid-column:1/-1}
+  .home-stat{padding-left:0;border-left:0}
+  .home-explore-grid,.home-latest-grid{grid-template-columns:1fr}
+  .home-explore-card{min-height:160px}
+  .home-section-heading{align-items:flex-start;flex-direction:column;gap:8px}
+  .home-heading-note{padding:0}
+  .home-text-link{padding:0}
+  .home-latest-card{min-height:140px}
+}
