@@ -15,6 +15,7 @@
     <button class="tab active" data-view="community">Feed</button>
     <button class="tab" data-view="chat">Chat</button>
     <button class="tab" data-view="players">Players</button>
+    <button class="tab" data-view="rewards">Points</button>
     <button class="tab" data-view="speedruns">Speedruns</button>
     <button class="tab" data-view="integrations">Integrations</button>
     <button class="tab" data-view="game">Quick Run ⚡</button>
@@ -88,6 +89,33 @@
   </section>
   <div class="player-search-row"><input id="player-search" class="search player-search" type="search" placeholder="Search @username or display name…" aria-label="Search players"></div>
   <div id="players"><div class="empty">Search by a player username or display name.</div></div>
+</main>
+
+
+<main id="rewards-view" class="hidden">
+  <div class="section-head">
+    <div><div class="eyebrow">GENDEV REWARDS</div><h2>Earn points. Complete missions.</h2><p>Finish community challenges, submit proof, and build your points balance.</p></div>
+    <button class="btn outline" data-goto="community">← Back to feed</button>
+  </div>
+  <section class="points-overview">
+    <div class="points-total"><div class="eyebrow">YOUR POINTS BALANCE</div><strong id="points-balance">0</strong><span>Gendev points</span></div>
+    <div class="points-stat"><span>APPROVED MISSIONS</span><strong id="points-approved">0</strong></div>
+    <div class="points-stat"><span>IN REVIEW</span><strong id="points-pending">0</strong></div>
+  </section>
+  <div class="points-layout">
+    <section>
+      <div class="points-section-head"><div><div class="eyebrow">AVAILABLE MISSIONS</div><h3>Pick a mission</h3></div><span class="hint">One approved reward per mission</span></div>
+      <div id="points-login-note" class="points-login-note hidden"></div>
+      <div id="point-missions" class="mission-grid"><div class="empty">Loading missions…</div></div>
+      <section class="side-card points-history-card"><div class="eyebrow">YOUR ACTIVITY</div><h3>Points history</h3><div id="points-history"><div class="empty">Your mission activity will appear here.</div></div></section>
+    </section>
+    <aside class="side-card future-prizes">
+      <div class="eyebrow">FUTURE PRIZES</div><div class="future-prize-icon">✦</div><h3>Gift cards and more</h3>
+      <p>Gift cards, game-related rewards, and community perks are ideas for a future rewards program.</p>
+      <span class="future-status">NOT AVAILABLE YET</span><div class="future-divider"></div>
+      <p class="muted">Points are only for tracking progress right now. They have no cash value and cannot be redeemed, transferred, or exchanged yet.</p>
+    </aside>
+  </div>
 </main>
 
 <main id="speedruns-view" class="hidden">
@@ -165,6 +193,24 @@
 <div id="post-modal" class="modal hidden"><div class="backdrop" data-close="post-modal"></div><section class="modal-card"><button class="close" data-close="post-modal" aria-label="Close">×</button><div class="eyebrow">ADD TO THE FEED</div><h2>Create a post</h2><p>Share a speedrun clip, image, or a tip that could help another runner.</p><form id="post-form"><label for="post-type">Post type</label><select id="post-type"><option value="project">Developer project</option><option value="video">Creator video</option><option value="discussion">Discussion</option><option value="defeat">Greatest defeat</option><option value="clip">Speedrun clip</option><option value="tip">Tip / strategy</option></select><label for="post-title">Title</label><input id="post-title" maxlength="100" required placeholder="What are you sharing?"><label for="post-body">Description</label><textarea id="post-body" rows="4" maxlength="3000" required placeholder="Add context, steps, or what makes this run special…"></textarea><label for="post-link">Clip or reference link <small>(optional)</small></label><input id="post-link" type="url" placeholder="https://…"><label for="post-file">Attach an image or short video <small>(optional, up to 25 MB)</small></label><input id="post-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"><p class="hint">Allowed files: JPG, PNG, WEBP, GIF, MP4, WEBM. Uploads are public community posts.</p><button id="publish" class="btn primary full">Publish post</button><div id="post-message" class="message"></div></form></section></div>
 
 <div id="donation-info-modal" class="modal hidden"><div class="backdrop" data-close="donation-info-modal"></div><section class="modal-card"><button class="close" data-close="donation-info-modal" aria-label="Close">×</button><div class="eyebrow">SUPPORT CREATORS</div><h2>Creator donations are coming.</h2><p>When donations launch, viewers will be able to support a creator directly from a clip or video post. Gendev will use Stripe Connect so creators can receive payouts securely.</p><p>Payments are not enabled yet. A legal guardian must own and review the Stripe account before an under-18 account can accept charges or receive transfers. Gendev will not collect card details itself.</p></section></div>
+
+
+<div id="point-submit-modal" class="modal hidden">
+  <div class="backdrop" data-close="point-submit-modal"></div>
+  <section class="modal-card point-submit-card" role="dialog" aria-modal="true" aria-labelledby="point-submit-title">
+    <button class="close" data-close="point-submit-modal" aria-label="Close">×</button>
+    <div class="eyebrow">MISSION SUBMISSION</div><h2 id="point-submit-title">Submit mission proof</h2><p id="point-submit-points" class="point-submit-reward"></p>
+    <form id="point-submit-form">
+      <label for="point-proof">How did you complete this mission?</label>
+      <textarea id="point-proof" rows="4" minlength="10" maxlength="800" required placeholder="Explain what you did. Add the score or post details if relevant."></textarea>
+      <label for="point-proof-url">Evidence link (optional)</label>
+      <input id="point-proof-url" type="url" maxlength="500" placeholder="https://…">
+      <p class="auth-hint">Use a link that is safe to share publicly. Do not include passwords, private messages, or personal contact details. Points are added only after review.</p>
+      <button id="point-submit-button" class="btn primary full" type="submit">Send for review</button>
+      <div id="point-submit-message" class="message" role="status" aria-live="polite"></div>
+    </form>
+  </section>
+</div>
 
 <script type="module" src="/src/main.js"></script>
 </body>
