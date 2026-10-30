@@ -12,3 +12,6 @@
 .brand{font-size:20px;letter-spacing:-.06em}.hero h1{font-size:clamp(43px,5vw,66px)}
 @media(max-width:850px){nav{gap:9px}.tab{font-size:10px}.chat-layout{grid-template-columns:1fr}.chat-rooms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.chat-rooms .eyebrow,.chat-rooms .hint{grid-column:1/-1}.chat-room{margin:0}.integration-grid{grid-template-columns:1fr}}
 @media(max-width:620px){nav{justify-content:space-between;gap:4px;overflow:auto}.tab{font-size:9px;padding:0 3px}.chat-rooms{grid-template-columns:repeat(2,minmax(0,1fr))}.chat-messages{height:350px}.chat-title{flex-direction:column}.chat-compose{align-items:stretch;flex-direction:column}.chat-compose .btn{width:100%}.integration-result{align-items:flex-start;flex-direction:column}.integration-result a{margin-left:0}.speedrun-search-row{align-items:stretch;flex-direction:column}.speedrun-search-row .btn{width:100%}.role-select{flex:1}.brand{font-size:18px}}
+
+.tag.project{background:#46d3a21f;color:#89e6c2}.tag.video{background:#ff8db21f;color:#ffc1d3}.tag.discussion{background:#ffd36a1f;color:#ffe09a}.tag.defeat{background:#b18cff20;color:#cdb8ff}
+.filters{flex-wrap:wrap}
