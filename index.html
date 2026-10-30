@@ -10,7 +10,7 @@
 <body>
 <div class="shell">
 <header>
-  <a class="brand" href="#"><span class="logo">S</span> Gendev<span class="cyan">.</span></a>
+  <a class="brand" href="#"><img class="logo-img" src="/images/gendev-mascot.webp" alt="Gendev mascot"> Gendev<span class="cyan">.</span></a>
   <nav aria-label="Main navigation">
     <button class="tab active" data-view="community">Feed</button>
     <button class="tab" data-view="chat">Chat</button>
@@ -39,7 +39,7 @@
     <div class="hero-board-top"><span>THE GENDEV MIX</span><span class="hero-board-mark">G / 01</span></div>
     <div class="hero-board-feature">
       <span class="hero-board-label">SIDE QUEST · QUICK RUN</span>
-      <div class="hero-board-art"><span class="hero-board-cloud">☁</span><span class="hero-board-spark">✳</span><span class="hero-board-track"></span></div>
+      <div class="hero-board-art"><img class="hero-board-mascot" src="/images/gendev-mascot.webp" alt="Gendev robot mascot"><span class="hero-board-spark">✳</span><span class="hero-board-track"></span></div>
       <h2>Got a new high score in you?</h2>
       <p>A quick little challenge between projects. Jump in, dodge the obstacles, and try to beat your record.</p>
       <button class="hero-board-link" data-goto="game">Play a round <span>↗</span></button>
@@ -78,6 +78,12 @@
   <div id="home-latest-posts" class="home-latest-grid"><div class="empty">Loading recent posts…</div></div>
 </section>
 
+
+<section class="home-reviews-section" id="home-reviews">
+ <div class="home-section-heading review-section-heading"><div><span class="eyebrow">MEMBER NOTES · AROUND THE WORLD</span><h2>Gendev, from every corner.</h2><p>What members think, in their own words. Country labels are optional and chosen by each reviewer.</p></div><button class="btn outline" id="home-write-review" type="button">＋ Write a review</button></div>
+ <div class="review-summary-strip"><div class="review-summary-stat"><strong id="home-review-count">0</strong><span>MEMBER REVIEWS</span></div><div class="review-summary-stat"><strong id="home-country-count">0</strong><span>COUNTRIES SHARED</span></div><span class="review-summary-note">Real member feedback · No invented testimonials</span></div>
+ <div id="community-reviews" class="review-grid"><div class="empty">Loading community reviews…</div></div>
+</section>
   <div class="section-head" id="feed-section">
     <div><div class="eyebrow">THE FEED</div><h2>Gendev community feed</h2><p>Projects, creator videos, gaming stories, speedruns, and useful discoveries.</p></div>
     <button class="btn primary" id="post-open">＋ Create a post</button>
@@ -262,6 +268,18 @@
   </section>
 </div>
 
+
+<div id="review-modal" class="modal hidden"><div class="backdrop" data-close="review-modal"></div><section class="modal-card review-modal-card" role="dialog" aria-modal="true" aria-labelledby="review-title"><button class="close" data-close="review-modal" aria-label="Close">×</button><div class="eyebrow">COMMUNITY REVIEW</div><h2 id="review-title">Share your Gendev experience.</h2><p>One review per account. You can update it later.</p><form id="review-form"><label for="review-rating">Your rating</label><select id="review-rating" required><option value="5">5 — Loved it</option><option value="4">4 — Really good</option><option value="3">3 — It's good</option><option value="2">2 — Needs work</option><option value="1">1 — Not for me</option></select><label for="review-country">Country or region <small>(optional)</small></label><input id="review-country" type="text" maxlength="56" autocomplete="country-name" placeholder="Choose what you want to share"><label for="review-text">Your review</label><textarea id="review-text" rows="4" minlength="15" maxlength="500" required placeholder="What do you like, use, or think could be better?"></textarea><p class="auth-hint">Your review and chosen country label will be public. Share a country only—never a street address, school, phone number, or private contact details.</p><button id="review-submit" class="btn primary full" type="submit">Publish review</button><div id="review-message" class="message" role="status" aria-live="polite"></div></form></section></div>
+<aside id="assistant-dock" class="assistant-dock" aria-label="Gendev AI assistant">
+ <section id="assistant-panel" class="assistant-panel hidden" role="dialog" aria-label="Ask the Gendev assistant">
+  <div class="assistant-topbar"><img src="/images/gendev-mascot.webp" alt="" class="assistant-avatar"><div class="assistant-heading"><strong>Gendev helper</strong><span>AI assistant · here to help</span></div><button id="assistant-close" class="assistant-close" type="button" aria-label="Close assistant">×</button></div>
+  <div id="assistant-messages" class="assistant-messages" aria-live="polite"><div class="assistant-welcome"><strong>Hey! What are you working on?</strong><p>Ask how to build something, get help with Gendev, or attach an image/video clip for a second look.</p></div></div>
+  <div class="assistant-quick-prompts"><button type="button" data-assistant-prompt="How do I start making a Roblox game in Luau?">Roblox / Luau help</button><button type="button" data-assistant-prompt="Can you look at this clip for signs it may be AI-generated?">Check a video</button><button type="button" data-assistant-prompt="How could I make something like this myself?">How do I make this?</button></div>
+  <form id="assistant-form" class="assistant-compose"><textarea id="assistant-input" rows="2" maxlength="900" placeholder="Ask a question…" aria-label="Ask Gendev helper"></textarea><div class="assistant-compose-bottom"><label for="assistant-file" class="assistant-attach">＋ <span>Attach</span></label><input id="assistant-file" class="hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"><span id="assistant-file-name" class="assistant-file-name"></span><button id="assistant-send" class="btn primary" type="submit">Send ↗</button></div></form>
+  <div class="assistant-disclaimer">Sign in to chat. Video checks sample up to 6 frames and cannot prove whether a clip is AI-generated.</div>
+ </section>
+ <button id="assistant-toggle" class="assistant-launcher" type="button" aria-expanded="false" aria-controls="assistant-panel"><img src="/images/gendev-mascot.webp" alt=""><span>Ask Gendev</span><b>AI</b></button>
+</aside>
 <script type="module" src="/src/main.js"></script>
 </body>
 </html>

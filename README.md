@@ -96,3 +96,10 @@ If the secrets are missing or the provider rejects a message, the claim is still
 ## MFA row-level security helper
 
 The restrictive policies for profiles, progress, posts, chat, reports, custom levels, leaderboard entries, and point claims call `private.mfa_access_ok()`. The helper lives in the non-exposed `private` schema and checks only the current caller's verified factor state. It is security-definer with an empty search path, accepts no user ID argument, and is executable only by authenticated users. Browser clients are not granted direct access to `auth.mfa_factors`.
+
+
+## Global member reviews
+The homepage review wall reads real rows from `public.community_reviews`. Each signed-in member may publish or update one 1–5 star review and optionally share a country or region. Reviews are public; the country field is optional and self-selected. The wall starts empty and does not contain fabricated testimonials.
+
+## Gendev AI helper
+The floating mascot opens a signed-in-only helper for Gendev, beginner development, creator workflows, and image feedback. Image uploads are resized in the browser. Video uploads are sampled into up to six still frames; the assistant receives neither the original video nor its audio and cannot prove whether a clip is AI-generated. The API route uses Vercel AI Gateway and requires a server-only `AI_GATEWAY_API_KEY` environment variable. Never put this key in a `VITE_*` variable. Each signed-in member is limited to 15 requests per day.

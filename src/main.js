@@ -883,12 +883,110 @@ $('point-submit-form').onsubmit = async event => {
 }
 
 
+
+let communityReviews = []
+let assistantHistory = []
+let assistantBusy = false
+
+async function loadReviews() {
+ const root=$('community-reviews'); if(!root||!db)return
+ const {data,error}=await db.from('community_reviews').select('id,user_id,rating,review_text,country,created_at,updated_at,profiles(username,display_name)').order('updated_at',{ascending:false}).limit(24)
+ if(error){root.textContent='Could not load reviews right now.';console.warn(error.message);return}
+ communityReviews=data||[]
+ $('home-review-count').textContent=communityReviews.length.toLocaleString()
+ $('home-country-count').textContent=new Set(communityReviews.map(x=>(x.country||'').trim().toLowerCase()).filter(Boolean)).size.toLocaleString()
+ root.replaceChildren()
+ if(!communityReviews.length){const empty=document.createElement('div');empty.className='empty review-empty';empty.textContent='No member reviews yet. Be the first to share what you think of Gendev.';root.append(empty);return}
+ for(const review of communityReviews){
+  const card=document.createElement('article');card.className='review-card'
+  const top=document.createElement('div');top.className='review-card-top'
+  const person=document.createElement('div');person.className='review-person'
+  const name=document.createElement('strong');name.textContent=review.profiles?.display_name||review.profiles?.username||'Gendev member'
+  const handle=document.createElement('span');handle.textContent=review.profiles?.username?'@'+review.profiles.username:'Community member'
+  person.append(name,handle)
+  const date=document.createElement('time');date.dateTime=review.updated_at||review.created_at;date.textContent=new Date(review.updated_at||review.created_at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})
+  top.append(person,date)
+  const stars=document.createElement('div');stars.className='review-stars';stars.textContent='★'.repeat(review.rating)+'☆'.repeat(5-review.rating);stars.setAttribute('aria-label',review.rating+' out of 5 stars')
+  const body=document.createElement('p');body.className='review-quote';body.textContent=review.review_text
+  const foot=document.createElement('div');foot.className='review-card-foot';const country=document.createElement('span');country.textContent=review.country?'🌐 '+review.country:'🌐 Country not shared';foot.append(country)
+  if(user&&review.user_id===user.id){const yours=document.createElement('span');yours.className='review-yours';yours.textContent='YOUR REVIEW';foot.append(yours)}
+  card.append(top,stars,body,foot);root.append(card)
+ }
+}
+function openReviewComposer(){
+ if(!user||!db){setAuthMode('signin');modal('auth-modal');return}
+ const mine=communityReviews.find(x=>x.user_id===user.id)
+ $('review-rating').value=String(mine?.rating||5);$('review-country').value=mine?.country||'';$('review-text').value=mine?.review_text||''
+ $('review-submit').textContent=mine?'Update review':'Publish review';message('review-message','');modal('review-modal');$('review-text').focus()
+}
+$('home-write-review').onclick=openReviewComposer
+$('review-form').onsubmit=async e=>{
+ e.preventDefault();if(!user||!db)return openReviewComposer()
+ const rating=Number($('review-rating').value),country=$('review-country').value.trim(),reviewText=$('review-text').value.trim()
+ if(!Number.isInteger(rating)||rating<1||rating>5||reviewText.length<15||reviewText.length>500)return message('review-message','Choose a rating and write 15–500 characters.',true)
+ if(country&&(country.length<2||country.length>56))return message('review-message','Country or region must be 2–56 characters.',true)
+ const button=$('review-submit');button.disabled=true;button.textContent='Publishing…'
+ try{
+  const {error}=await db.from('community_reviews').upsert({user_id:user.id,rating,country:country||null,review_text:reviewText,updated_at:new Date().toISOString()},{onConflict:'user_id'})
+  if(error)throw error;modal('review-modal',false);await loadReviews()
+ }catch(err){message('review-message',err.message||'Could not save your review.',true)}
+ finally{button.disabled=false;button.textContent=communityReviews.some(x=>x.user_id===user?.id)?'Update review':'Publish review'}
+}
+function assistantBubble(role,text){
+ const root=$('assistant-messages'),bubble=document.createElement('div');bubble.className='assistant-bubble '+role
+ const label=document.createElement('span');label.className='assistant-speaker';label.textContent=role==='user'?'YOU':role==='error'?'NOTICE':'GENDEV BOT'
+ const body=document.createElement('p');body.textContent=text;bubble.append(label,body);root.append(bubble);root.scrollTop=root.scrollHeight;return body
+}
+function setAssistantOpen(open){$('assistant-panel').classList.toggle('hidden',!open);$('assistant-toggle').setAttribute('aria-expanded',String(open));if(open)$('assistant-input').focus()}
+$('assistant-toggle').onclick=()=>setAssistantOpen($('assistant-panel').classList.contains('hidden'))
+$('assistant-close').onclick=()=>setAssistantOpen(false)
+document.querySelectorAll('[data-assistant-prompt]').forEach(b=>b.onclick=()=>{$('assistant-input').value=b.dataset.assistantPrompt;$('assistant-input').focus()})
+$('assistant-file').onchange=()=>{
+ const f=$('assistant-file').files?.[0];if(!f){$('assistant-file-name').textContent='';return}
+ if(!['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/webm'].includes(f.type)||f.size>25*1024*1024){$('assistant-file').value='';$('assistant-file-name').textContent='';assistantBubble('error','Choose an image or MP4/WEBM video under 25 MB.');return}
+ $('assistant-file-name').textContent=f.name.length>22?f.name.slice(0,19)+'…':f.name
+}
+async function imageData(file){
+ const bitmap=await createImageBitmap(file),scale=Math.min(1,900/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement('canvas')
+ canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale))
+ canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();return canvas.toDataURL('image/jpeg',.72)
+}
+async function videoFrames(file){
+ const url=URL.createObjectURL(file),video=document.createElement('video');video.preload='metadata';video.muted=true;video.playsInline=true;video.src=url
+ try{
+  await new Promise((resolve,reject)=>{video.onloadedmetadata=resolve;video.onerror=()=>reject(Error('This video format could not be opened.'))})
+  const end=Math.max(0,video.duration-.05),times=[0,.2,.4,.6,.8,1].map(x=>Math.min(end,video.duration*x)),frames=[]
+  for(const time of [...new Set(times)]){if(Math.abs(video.currentTime-time)>.01)await new Promise((resolve,reject)=>{video.onseeked=resolve;video.onerror=()=>reject(Error('Could not sample the video.'));video.currentTime=time})
+   const scale=Math.min(1,640/Math.max(video.videoWidth,video.videoHeight)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(video.videoWidth*scale));canvas.height=Math.max(1,Math.round(video.videoHeight*scale));canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);frames.push({dataUrl:canvas.toDataURL('image/jpeg',.64)})
+  }return frames
+ }finally{URL.revokeObjectURL(url);video.removeAttribute('src');video.load()}
+}
+$('assistant-form').onsubmit=async e=>{
+ e.preventDefault();if(assistantBusy)return
+ if(!user||!session?.access_token){assistantBubble('error','Please sign in to use the Gendev assistant.');setAuthMode('signin');modal('auth-modal');return}
+ const question=$('assistant-input').value.trim(),file=$('assistant-file').files?.[0];if(!question&&!file)return
+ const button=$('assistant-send');assistantBusy=true;button.disabled=true;button.textContent='Working…'
+ try{
+  const images=file?(file.type.startsWith('image/')?[{dataUrl:await imageData(file)}]:await videoFrames(file)):[]
+  const userText=question||(file.type.startsWith('video/')?'Please review this video and describe what you notice.':'Please look at this image and explain what you notice.')
+  assistantHistory.push({role:'user',content:userText+(file?' [Media attached]':'')});assistantBubble('user',userText+(file?'\n[Attached: '+file.name+']':''))
+  $('assistant-input').value='';$('assistant-file').value='';$('assistant-file-name').textContent=''
+  const pending=assistantBubble('assistant','Thinking…')
+  const response=await fetch('/api/assistant',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token},body:JSON.stringify({messages:assistantHistory.slice(-8),images})})
+  const result=await response.json().catch(()=>({}))
+  if(!response.ok){pending.textContent=result.error||'The assistant could not answer. Try again.';return}
+  const reply=String(result.reply||'').trim()||'I could not create an answer. Try rephrasing.'
+  pending.textContent=reply;assistantHistory.push({role:'assistant',content:reply})
+ }catch(err){assistantBubble('error',err.message||'Something went wrong.')}
+ finally{assistantBusy=false;button.disabled=false;button.textContent='Send ↗'}
+}
+
 async function afterAuth() {
   if (user) await ensureProfile()
   else profile = null
   accountUI()
   await renderMfaSettings()
-  await Promise.all([loadPosts(), loadProgress(), loadPoints(), loadHomeStats()])
+  await Promise.all([loadPosts(), loadProgress(), loadPoints(), loadHomeStats(), loadReviews()])
   if (!$('players-view').classList.contains('hidden')) loadPlayers()
 }
 $('signout').onclick = async () => {
@@ -1490,3 +1588,4 @@ $('buy-button').onclick = () => modal('donation-info-modal')
 
 void loadPosts()
 void loadHomeStats()
+void loadReviews()
