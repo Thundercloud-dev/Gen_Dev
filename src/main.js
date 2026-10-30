@@ -1,416 +1,127 @@
 import { createClient } from '@supabase/supabase-js'
 import './style.css'
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-const supabaseReady = Boolean(SUPABASE_URL && SUPABASE_KEY)
-const supabase = supabaseReady ? createClient(SUPABASE_URL, SUPABASE_KEY) : null
+const url=import.meta.env.VITE_SUPABASE_URL
+const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+const db=url&&key?createClient(url,key):null
+const $=id=>document.getElementById(id)
+let user=null,posts=[],filter='all',progress={current_level:1,unlocked_level:1,total_jumps:0,best_score:0,coins:0}
+let game
 
-const $ = (id) => document.getElementById(id)
-const canvas = $('game')
-const ctx = canvas.getContext('2d')
+function modal(id,show=true){$(id).classList.toggle('hidden',!show)}
+function message(id,text,error=false){$(id).textContent=text;$(id).classList.toggle('error',error)}
+function view(name){$('community-view').classList.toggle('hidden',name!=='community');$('game-view').classList.toggle('hidden',name!=='game');document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.view===name));if(name==='game')game.draw();window.scrollTo({top:0,behavior:'smooth'})}
+document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>view(b.dataset.view))
+document.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>view(b.dataset.goto))
+$('explore').onclick=()=>$('community-view').scrollIntoView({behavior:'smooth'})
+$('year').textContent=new Date().getFullYear()
 
-const ui = {
-  accountLabel: $('account-label'),
-  signout: $('signout-button'),
-  authCard: $('auth-card'),
-  authForm: $('auth-form'),
-  email: $('email'),
-  password: $('password'),
-  signup: $('signup-button'),
-  authMessage: $('auth-message'),
-  best: $('best-score'),
-  coins: $('coin-count'),
-  level: $('level-number'),
-  score: $('score'),
-  jumps: $('jump-count'),
-  unlocked: $('unlocked-level'),
-  saveStatus: $('save-status'),
-  overlay: $('game-overlay'),
-  overlayTitle: $('overlay-title'),
-  overlayCopy: $('overlay-copy'),
-  start: $('start-button'),
-  restart: $('restart-button'),
-  runStatus: $('run-status')
+function accountUI(){
+ $('account').textContent=user?(user.user_metadata?.display_name||user.email):'Browsing as guest'
+ $('auth-open').classList.toggle('hidden',!!user);$('signout').classList.toggle('hidden',!user)
+ $('save-status').textContent=user?'Signed in — your best score syncs.':'Playing as guest — sign in to save.'
+}
+function validUrl(raw){if(!raw)return null;try{const u=new URL(raw);return ['https:','http:'].includes(u.protocol)?u.href:null}catch{return null}}
+function renderPosts(){
+ const root=$('posts');root.replaceChildren()
+ const q=$('search').value.trim().toLowerCase()
+ const list=posts.filter(p=>(filter==='all'||p.post_type===filter)&&(!q||[p.title,p.body,p.username].join(' ').toLowerCase().includes(q)))
+ if(!list.length){const e=document.createElement('div');e.className='empty';e.textContent=posts.length?'No posts match your search.':'No posts yet — be the first to share a clip or tip.';root.append(e);return}
+ for(const p of list){
+  const card=document.createElement('article');card.className='post'
+  const meta=document.createElement('div');meta.className='post-meta'
+  const tag=document.createElement('span');tag.className='tag '+p.post_type;tag.textContent=p.post_type==='clip'?'▶ CLIP':'✦ TIP'
+  const date=document.createElement('span');date.textContent=new Date(p.created_at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});meta.append(tag,date)
+  const title=document.createElement('h3');title.textContent=p.title
+  const body=document.createElement('p');body.textContent=p.body
+  card.append(meta,title,body)
+  const link=validUrl(p.link_url);if(link){const a=document.createElement('a');a.className='post-link';a.href=link;a.target='_blank';a.rel='noopener noreferrer';a.textContent=p.post_type==='clip'?'Watch the clip ↗':'Open reference ↗';card.append(a)}
+  const foot=document.createElement('div');foot.className='post-foot';const author=document.createElement('span');author.textContent='●  '+(p.username||'Runner');foot.append(author)
+  if(user&&user.id===p.user_id){const del=document.createElement('button');del.className='delete';del.textContent='Delete';del.onclick=()=>deletePost(p.id);foot.append(del)}
+  card.append(foot);root.append(card)
+ }
+}
+async function loadPosts(){
+ if(!db){$('posts').textContent='Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in Vercel.';return}
+ const {data,error}=await db.from('community_posts').select('id,user_id,username,post_type,title,body,link_url,created_at').order('created_at',{ascending:false}).limit(60)
+ if(error){$('posts').textContent='Could not load posts: '+error.message;return}posts=data||[];renderPosts()
+}
+async function deletePost(id){if(!user||!db||!confirm('Delete this post?'))return;const {error}=await db.from('community_posts').delete().eq('id',id).eq('user_id',user.id);if(error)alert(error.message);else loadPosts()}
+document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;document.querySelectorAll('[data-filter]').forEach(x=>x.classList.toggle('active',x===b));renderPosts()})
+$('search').oninput=renderPosts
+function openPost(){if(user)modal('post-modal');else modal('auth-modal')}
+$('post-open').onclick=openPost;$('share').onclick=openPost
+$('auth-open').onclick=()=>modal('auth-modal')
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>modal(b.dataset.close,false))
+$('post-form').onsubmit=async e=>{
+ e.preventDefault();if(!user){modal('post-modal',false);modal('auth-modal');return}
+ const raw=$('post-link').value.trim(),link=validUrl(raw);if(raw&&!link)return message('post-message','Please enter a valid http or https link.',true)
+ const button=$('publish');button.disabled=true;button.textContent='Publishing…'
+ const {error}=await db.from('community_posts').insert({user_id:user.id,username:user.user_metadata?.display_name||user.email?.split('@')[0]||'Runner',post_type:$('post-type').value,title:$('post-title').value.trim(),body:$('post-body').value.trim(),link_url:link})
+ button.disabled=false;button.textContent='Publish post'
+ if(error)return message('post-message',error.message,true)
+ $('post-form').reset();modal('post-modal',false);await loadPosts()
+}
+$('auth-form').onsubmit=async e=>{
+ e.preventDefault();if(!db)return message('auth-message','Supabase is not configured in Vercel yet.',true)
+ message('auth-message','Signing in…')
+ const {data,error}=await db.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value})
+ if(error)return message('auth-message',error.message,true)
+ user=data.user;await afterAuth();modal('auth-modal',false)
+}
+$('signup').onclick=async()=>{
+ if(!db)return message('auth-message','Supabase is not configured in Vercel yet.',true)
+ const email=$('email').value.trim(),password=$('password').value
+ if(!email||password.length<6)return message('auth-message','Enter an email and a password with at least 6 characters.',true)
+ message('auth-message','Creating account…')
+ const {data,error}=await db.auth.signUp({email,password,options:{data:{display_name:email.split('@')[0].slice(0,24)}}})
+ if(error)return message('auth-message',error.message,true)
+ if(data.session){user=data.user;await afterAuth();modal('auth-modal',false)}
+ else message('auth-message','Account created. Check your email to confirm, then sign in.')
+}
+async function afterAuth(){accountUI();await Promise.all([loadPosts(),loadProgress()])}
+$('signout').onclick=async()=>{const {error}=await db.auth.signOut();if(error)return alert(error.message);user=null;progress={current_level:1,unlocked_level:1,total_jumps:0,best_score:0,coins:0};accountUI();$('best').textContent='0';loadPosts()}
+async function loadProgress(){
+ if(!user||!db)return
+ const {data,error}=await db.from('parkour_progress').select('current_level,unlocked_level,total_jumps,best_score,coins').eq('user_id',user.id).maybeSingle()
+ if(error)return message('save-status',error.message,true)
+ if(data)progress={...progress,...data}
+ game.best=Number(progress.best_score)||0;$('best').textContent=String(game.best)
+}
+async function saveScore(score,jumps){
+ if(!user||!db){$('save-status').textContent='Sign in to save your score.';return}
+ progress.best_score=Math.max(Number(progress.best_score)||0,score);progress.total_jumps=(Number(progress.total_jumps)||0)+jumps
+ progress.current_level=Math.max(Number(progress.current_level)||1,Math.floor(score/100)+1);progress.unlocked_level=Math.max(Number(progress.unlocked_level)||1,progress.current_level)
+ const {error}=await db.from('parkour_progress').upsert({user_id:user.id,...progress,updated_at:new Date().toISOString()},{onConflict:'user_id'})
+ if(error)$('save-status').textContent='Could not save: '+error.message
+ else{$('best').textContent=String(progress.best_score);$('save-status').textContent='Record saved ✓'}
 }
 
-let user = null
-let progress = { current_level: 1, unlocked_level: 1, total_jumps: 0, best_score: 0, coins: 0 }
-let saveTimer = null
-let running = false
-let animationId = 0
-let lastFrame = 0
-let score = 0
-let runCoins = 0
-let runJumps = 0
-let speed = 5
-let spawnTimer = 0
-let coinTimer = 0
-let obstacles = []
-let pickups = []
-const groundY = 350
-const player = { x: 105, y: groundY - 42, width: 48, height: 42, vy: 0, onGround: true }
-
-function setMessage(message, isError = false) {
-  ui.authMessage.textContent = message
-  ui.authMessage.classList.toggle('error', isError)
+function makeGame(){
+ const c=$('runner'),ctx=c.getContext('2d'),ground=295
+ let active=false,score=0,jumps=0,speed=5,last=0,spawn=0,items=[],raf=0,best=0
+ const player={x:100,y:ground-40,vy:0,on:true}
+ function draw(){
+  const g=ctx.createLinearGradient(0,0,0,360);g.addColorStop(0,'#19264b');g.addColorStop(1,'#3b5788');ctx.fillStyle=g;ctx.fillRect(0,0,900,360)
+  for(let i=0;i<7;i++){let x=(i*160-score*.5%1050+1050)%1050-40;ctx.fillStyle='rgba(255,255,255,.15)';ctx.beginPath();ctx.arc(x,70+i%3*35,19,0,7);ctx.arc(x+24,65+i%3*35,24,0,7);ctx.arc(x+49,75+i%3*35,17,0,7);ctx.fill()}
+  ctx.fillStyle='#192642';ctx.fillRect(0,ground,900,65);ctx.fillStyle='#9be6ff';ctx.fillRect(0,ground,900,4)
+  items.forEach(o=>{ctx.fillStyle='#ff8296';ctx.beginPath();ctx.roundRect(o.x,o.y,o.w,o.h,7);ctx.fill();ctx.fillStyle='#ffc5ce';ctx.fillRect(o.x+6,o.y+7,o.w-12,5)})
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(player.x+18,player.y+17,16,Math.PI,0);ctx.arc(player.x+35,player.y+17,16,Math.PI,0);ctx.lineTo(player.x+51,player.y+35);ctx.lineTo(player.x+2,player.y+35);ctx.fill()
+  ctx.fillStyle='#172442';ctx.beginPath();ctx.arc(player.x+27,player.y+16,2.5,0,7);ctx.arc(player.x+38,player.y+16,2.5,0,7);ctx.fill();$('score').textContent=String(Math.floor(score))
+ }
+ function jump(){if(active&&player.on){player.vy=-13;player.on=false;jumps++}}
+ function finish(){active=false;$('run-status').textContent='RUN COMPLETE';$('overlay-title').textContent='Run complete!';$('overlay-copy').textContent='Score: '+Math.floor(score)+' · Jumps: '+jumps+'. Try again?';$('start').textContent='Run again';$('overlay').classList.remove('hidden');best=Math.max(best,Math.floor(score));$('best').textContent=String(best);saveScore(Math.floor(score),jumps)}
+ function loop(t){if(!active)return;const d=Math.min((t-(last||t))/16.67,2);last=t;score+=.12*speed*d;speed=Math.min(10,5+score/450);player.vy+=.62*d;player.y+=player.vy*d;if(player.y+40>=ground){player.y=ground-40;player.vy=0;player.on=true}
+  spawn+=d*16.67;if(spawn>Math.max(650,1450-speed*75)){spawn=0;const h=28+Math.random()*24;items.push({x:910,y:ground-h,w:25+Math.random()*18,h})}
+  items.forEach(o=>o.x-=speed*d);items=items.filter(o=>o.x+o.w>0)
+  if(items.some(o=>player.x+43>o.x+3&&player.x+7<o.x+o.w-3&&player.y+36>o.y+3)){draw();finish();return}
+  draw();raf=requestAnimationFrame(loop)
+ }
+ function start(){cancelAnimationFrame(raf);score=0;jumps=0;speed=5;spawn=0;items=[];player.y=ground-40;player.vy=0;player.on=true;active=true;last=0;$('overlay').classList.add('hidden');$('run-status').textContent='RUNNING';raf=requestAnimationFrame(loop)}
+ $('start').onclick=start;$('restart').onclick=start;c.onpointerdown=jump
+ window.addEventListener('keydown',e=>{if(['Space','ArrowUp','KeyW'].includes(e.code)&&!$('game-view').classList.contains('hidden')){e.preventDefault();jump()}})
+ draw();return{draw,start,get best(){return best},set best(v){best=v;$('best').textContent=String(v)}}
 }
-
-function updateStats() {
-  ui.best.textContent = String(progress.best_score)
-  ui.coins.textContent = String(progress.coins)
-  ui.level.textContent = String(progress.current_level)
-  ui.jumps.textContent = String(progress.total_jumps)
-  ui.unlocked.textContent = String(progress.unlocked_level)
-}
-
-function setSignedInState() {
-  ui.accountLabel.textContent = user ? (user.email || 'Signed in') : 'Playing as Guest'
-  ui.signout.classList.toggle('hidden', !user)
-  ui.authCard.classList.toggle('hidden', Boolean(user))
-  ui.saveStatus.textContent = user ? 'Cloud sync on' : 'Guest only'
-}
-
-async function loadProgress() {
-  if (!user || !supabase) return
-  ui.saveStatus.textContent = 'Loading…'
-  const { data, error } = await supabase
-    .from('parkour_progress')
-    .select('current_level, unlocked_level, total_jumps, best_score, coins')
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (error) {
-    ui.saveStatus.textContent = 'Load failed'
-    setMessage('Could not load saved progress: ' + error.message, true)
-    return
-  }
-  if (data) progress = { ...progress, ...data }
-  updateStats()
-  ui.saveStatus.textContent = 'Cloud sync on'
-}
-
-async function saveProgress() {
-  if (!user || !supabase) {
-    ui.saveStatus.textContent = 'Sign in to save'
-    return
-  }
-
-  const payload = {
-    user_id: user.id,
-    current_level: progress.current_level,
-    unlocked_level: progress.unlocked_level,
-    total_jumps: progress.total_jumps,
-    best_score: progress.best_score,
-    coins: progress.coins,
-    updated_at: new Date().toISOString()
-  }
-
-  ui.saveStatus.textContent = 'Saving…'
-  const { error } = await supabase
-    .from('parkour_progress')
-    .upsert(payload, { onConflict: 'user_id' })
-
-  if (error) {
-    ui.saveStatus.textContent = 'Save failed'
-    setMessage('Your run worked, but saving failed: ' + error.message, true)
-    return
-  }
-  ui.saveStatus.textContent = 'Saved ✓'
-}
-
-function queueSave() {
-  if (!user) return
-  clearTimeout(saveTimer)
-  saveTimer = setTimeout(saveProgress, 500)
-}
-
-async function signIn(event) {
-  event.preventDefault()
-  if (!supabase) {
-    setMessage('Supabase settings are missing. Add the VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY variables in Vercel.', true)
-    return
-  }
-  const email = ui.email.value.trim()
-  const password = ui.password.value
-  setMessage('Signing in…')
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error) {
-    setMessage(error.message, true)
-    return
-  }
-  user = data.user
-  await loadProgress()
-  setSignedInState()
-  setMessage('Welcome back! Your progress is loaded.')
-}
-
-async function signUp() {
-  if (!supabase) {
-    setMessage('Supabase settings are missing. Add the VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY variables in Vercel.', true)
-    return
-  }
-  const email = ui.email.value.trim()
-  const password = ui.password.value
-  if (!email || password.length < 6) {
-    setMessage('Enter an email and a password with at least 6 characters.', true)
-    return
-  }
-  setMessage('Creating account…')
-  const { data, error } = await supabase.auth.signUp({ email, password })
-  if (error) {
-    setMessage(error.message, true)
-    return
-  }
-  if (data.session) {
-    user = data.user
-    await loadProgress()
-    setSignedInState()
-    setMessage('Account created. Your progress will now sync.')
-  } else {
-    setMessage('Account created! Check your email to confirm, then sign in.')
-  }
-}
-
-async function signOut() {
-  if (!supabase) return
-  const { error } = await supabase.auth.signOut()
-  if (error) {
-    setMessage(error.message, true)
-    return
-  }
-  user = null
-  progress = { current_level: 1, unlocked_level: 1, total_jumps: 0, best_score: 0, coins: 0 }
-  updateStats()
-  setSignedInState()
-  setMessage('Signed out. You can still play as a guest.')
-}
-
-function roundedRect(x, y, w, h, r, color) {
-  ctx.fillStyle = color
-  ctx.beginPath()
-  ctx.roundRect(x, y, w, h, r)
-  ctx.fill()
-}
-
-function drawCloud(x, y, scale = 1, color = '#ffffff') {
-  ctx.fillStyle = color
-  ctx.beginPath()
-  ctx.arc(x, y, 15 * scale, Math.PI * 0.5, Math.PI * 1.5)
-  ctx.arc(x + 17 * scale, y - 10 * scale, 19 * scale, Math.PI, Math.PI * 1.85)
-  ctx.arc(x + 39 * scale, y - 2 * scale, 15 * scale, Math.PI * 1.15, Math.PI * 2)
-  ctx.lineTo(x + 53 * scale, y + 13 * scale)
-  ctx.lineTo(x, y + 13 * scale)
-  ctx.closePath()
-  ctx.fill()
-}
-
-function drawScene() {
-  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height)
-  gradient.addColorStop(0, '#18264e')
-  gradient.addColorStop(1, '#536a9d')
-  ctx.fillStyle = gradient
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-  for (let i = 0; i < 7; i++) {
-    const x = ((i * 173 - (score * 0.25) % 1100) + 1100) % 1100 - 80
-    drawCloud(x, 80 + (i % 3) * 45, 0.65 + (i % 2) * 0.2, 'rgba(255,255,255,0.18)')
-  }
-
-  ctx.fillStyle = '#293b65'
-  ctx.beginPath()
-  ctx.moveTo(0, 285)
-  for (let x = 0; x <= canvas.width; x += 90) {
-    ctx.lineTo(x, 245 + Math.sin((x + score * 0.4) * 0.012) * 22)
-  }
-  ctx.lineTo(canvas.width, groundY)
-  ctx.lineTo(0, groundY)
-  ctx.closePath()
-  ctx.fill()
-
-  roundedRect(0, groundY, canvas.width, 70, 0, '#172342')
-  ctx.fillStyle = '#8de0ff'
-  ctx.fillRect(0, groundY, canvas.width, 4)
-  for (let x = -((score * 2) % 50); x < canvas.width; x += 50) {
-    ctx.fillStyle = 'rgba(141,224,255,0.18)'
-    ctx.fillRect(x, groundY + 25, 24, 3)
-  }
-
-  pickups.forEach((coin) => {
-    ctx.save()
-    ctx.translate(coin.x, coin.y)
-    ctx.fillStyle = '#ffd76b'
-    ctx.beginPath()
-    ctx.arc(0, 0, 10, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.strokeStyle = '#fff1ae'
-    ctx.lineWidth = 3
-    ctx.stroke()
-    ctx.restore()
-  })
-
-  obstacles.forEach((obstacle) => {
-    roundedRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height, 8, '#ff7d8b')
-    roundedRect(obstacle.x + 6, obstacle.y + 6, obstacle.width - 12, 7, 4, '#ffc0c6')
-  })
-
-  drawCloud(player.x + 18, player.y + 16, 0.55, '#ffffff')
-  ctx.fillStyle = '#172342'
-  ctx.beginPath()
-  ctx.arc(player.x + 23, player.y + 13, 2.5, 0, Math.PI * 2)
-  ctx.arc(player.x + 34, player.y + 13, 2.5, 0, Math.PI * 2)
-  ctx.fill()
-  roundedRect(player.x + 25, player.y + 24, 10, 3, 2, '#6a7da7')
-}
-
-function resetRun() {
-  score = 0
-  runCoins = 0
-  runJumps = 0
-  speed = 5
-  spawnTimer = 0
-  coinTimer = 0
-  obstacles = []
-  pickups = []
-  player.y = groundY - player.height
-  player.vy = 0
-  player.onGround = true
-  ui.score.textContent = '0'
-}
-
-function showOverlay(title, copy, buttonText) {
-  ui.overlayTitle.textContent = title
-  ui.overlayCopy.textContent = copy
-  ui.start.textContent = buttonText
-  ui.overlay.classList.remove('hidden')
-}
-
-function startRun() {
-  cancelAnimationFrame(animationId)
-  resetRun()
-  running = true
-  lastFrame = 0
-  ui.overlay.classList.add('hidden')
-  ui.runStatus.textContent = 'RUNNING'
-  animationId = requestAnimationFrame(gameLoop)
-}
-
-function jump() {
-  if (!running) return
-  if (player.onGround) {
-    player.vy = -13.5
-    player.onGround = false
-    runJumps += 1
-  }
-}
-
-function finishRun() {
-  running = false
-  cancelAnimationFrame(animationId)
-  ui.runStatus.textContent = 'RUN COMPLETE'
-  progress.total_jumps += runJumps
-  progress.coins += runCoins
-  progress.best_score = Math.max(progress.best_score, Math.floor(score))
-  progress.current_level = Math.max(progress.current_level, Math.floor(score / 100) + 1)
-  progress.unlocked_level = Math.max(progress.unlocked_level, progress.current_level)
-  updateStats()
-  queueSave()
-  showOverlay('Run complete!', 'Score: ' + Math.floor(score) + ' • Coins: ' + runCoins + ' • Jumps: ' + runJumps, 'Run again')
-}
-
-function intersects(a, b) {
-  return a.x < b.x + b.width && a.x + a.width > b.x &&
-    a.y < b.y + b.height && a.y + a.height > b.y
-}
-
-function update(delta) {
-  const step = Math.min(delta / 16.67, 2)
-  score += 0.12 * step * speed
-  speed = Math.min(10, 5 + score / 450)
-  player.vy += 0.65 * step
-  player.y += player.vy * step
-  if (player.y + player.height >= groundY) {
-    player.y = groundY - player.height
-    player.vy = 0
-    player.onGround = true
-  }
-
-  spawnTimer += delta
-  if (spawnTimer > Math.max(650, 1450 - speed * 75)) {
-    spawnTimer = 0
-    const height = 28 + Math.random() * 24
-    obstacles.push({ x: canvas.width + 20, y: groundY - height, width: 25 + Math.random() * 20, height })
-  }
-
-  coinTimer += delta
-  if (coinTimer > 1050) {
-    coinTimer = 0
-    pickups.push({ x: canvas.width + 20, y: groundY - 85 - Math.random() * 90, width: 20, height: 20 })
-  }
-
-  obstacles.forEach((item) => { item.x -= speed * step })
-  pickups.forEach((item) => { item.x -= speed * step })
-  obstacles = obstacles.filter((item) => item.x + item.width > -10)
-  pickups = pickups.filter((item) => item.x > -20)
-
-  const playerBox = { x: player.x + 7, y: player.y + 5, width: 40, height: 34 }
-  for (const obstacle of obstacles) {
-    if (intersects(playerBox, obstacle)) {
-      finishRun()
-      return
-    }
-  }
-
-  pickups = pickups.filter((coin) => {
-    if (intersects(playerBox, coin)) {
-      runCoins += 1
-      return false
-    }
-    return true
-  })
-  ui.score.textContent = String(Math.floor(score))
-}
-
-function gameLoop(timestamp) {
-  if (!running) return
-  const delta = lastFrame ? timestamp - lastFrame : 16.67
-  lastFrame = timestamp
-  update(delta)
-  drawScene()
-  if (running) animationId = requestAnimationFrame(gameLoop)
-}
-
-function handleJumpInput(event) {
-  if (event.type === 'keydown' && !['Space', 'ArrowUp', 'KeyW'].includes(event.code)) return
-  if (event.type === 'keydown') event.preventDefault()
-  jump()
-}
-
-ui.authForm.addEventListener('submit', signIn)
-ui.signup.addEventListener('click', signUp)
-ui.signout.addEventListener('click', signOut)
-ui.start.addEventListener('click', startRun)
-ui.restart.addEventListener('click', startRun)
-canvas.addEventListener('pointerdown', jump)
-window.addEventListener('keydown', handleJumpInput)
-
-drawScene()
-updateStats()
-setSignedInState()
-
-if (!supabaseReady) {
-  setMessage('Supabase environment variables are not configured yet.', true)
-  ui.saveStatus.textContent = 'Not configured'
-} else {
-  supabase.auth.getSession().then(async ({ data, error }) => {
-    if (error) setMessage(error.message, true)
-    user = data.session?.user ?? null
-    setSignedInState()
-    if (user) await loadProgress()
-  })
-  supabase.auth.onAuthStateChange((_event, session) => {
-    user = session?.user ?? null
-    setSignedInState()
-    if (user) loadProgress()
-  })
-}
+game=makeGame();accountUI();loadPosts()
+if(db){db.auth.getSession().then(async({data})=>{user=data.session?.user||null;accountUI();if(user)await afterAuth()});db.auth.onAuthStateChange((_event,session)=>{user=session?.user||null;accountUI();if(user)afterAuth()})}
+else $('posts').textContent='Supabase setup is missing. Configure the VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY environment variables in Vercel.'
