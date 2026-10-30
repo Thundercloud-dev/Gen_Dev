@@ -290,6 +290,7 @@ function clearSignedInState() {
   accountUI()
   $('best').textContent = '0'
   renderOwnProfile()
+  void renderMfaSettings()
   loadPosts()
 }
 let authGateBusy = false
