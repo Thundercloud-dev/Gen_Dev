@@ -74,3 +74,64 @@
 .point-submit-card textarea:focus{border-color:#8de4ff}
 @media(max-width:850px){.points-layout{grid-template-columns:minmax(0,1fr) 230px}}
 @media(max-width:620px){.points-overview{grid-template-columns:1fr 1fr}.points-total{grid-column:1/-1}.points-layout{grid-template-columns:1fr}.mission-grid{grid-template-columns:1fr}.future-prizes{position:static}.points-section-head{align-items:start;flex-direction:column}}
+
+/* More editorial, community-first Gendev homepage */
+.home-hero{min-height:390px;grid-template-columns:minmax(0,1.1fr) minmax(320px,.9fr);gap:44px;padding:48px 0 38px}
+.hero-copy h1{font-size:clamp(43px,5vw,64px);max-width:680px}
+.hero-copy>p{max-width:570px;font-size:13px;line-height:1.9}
+.hero-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:22px}
+.hero-byline{display:flex;gap:17px;flex-wrap:wrap;margin-top:24px;padding-top:14px;border-top:1px solid #ffffff17;color:#8291b1;font:9px 'DM Mono',monospace;letter-spacing:.03em}
+.hero-board{align-self:stretch;min-height:310px;padding:16px 19px;border:1px solid #ffffff20;border-radius:15px;background:#151e35;box-shadow:0 18px 50px #03081438;display:flex;flex-direction:column}
+.hero-board-top,.hero-board-bottom{display:flex;justify-content:space-between;gap:10px;color:#8292b2;font:9px 'DM Mono',monospace;letter-spacing:.12em}
+.hero-board-mark{color:#8de4ff}
+.hero-board-feature{display:flex;flex-direction:column;flex:1;justify-content:center;padding:12px 0 15px}
+.hero-board-label{color:#8de4ff;font:9px 'DM Mono',monospace;letter-spacing:.12em}
+.hero-board-art{height:100px;position:relative;display:flex;align-items:center;padding-left:20px;overflow:hidden}
+.hero-board-cloud{position:relative;z-index:1;font-size:72px;filter:drop-shadow(0 7px 12px #5fcfff48)}
+.hero-board-spark{position:absolute;left:125px;top:12px;color:#ffd98b;font-size:32px}
+.hero-board-track{position:absolute;left:0;right:-20px;bottom:23px;height:1px;background:#8de4ff4d}
+.hero-board-feature h2{font-size:23px;letter-spacing:-.04em;margin:0 0 7px}
+.hero-board-feature p{max-width:350px;margin:0;color:#a4b1cc;font-size:11px;line-height:1.75}
+.hero-board-link{display:flex;justify-content:space-between;align-items:center;width:100%;margin-top:15px;padding:11px 0 0;border:0;border-top:1px solid #ffffff19;background:none;color:#8de4ff;font-size:11px;font-weight:800;text-align:left}
+.hero-board-link span{font-size:16px}
+.hero-board-bottom{padding-top:13px;border-top:1px solid #ffffff18}
+.hero-board-bottom span:nth-child(2){color:#b7a1ff}.hero-board-bottom span:nth-child(3){color:#9de5bf}
+.home-stat-strip{display:grid;grid-template-columns:1.6fr repeat(3,1fr);align-items:center;gap:15px;padding:17px 20px;margin:0 0 42px;border:1px solid #ffffff17;border-radius:11px;background:#131c32}
+.home-stat-intro{display:flex;flex-direction:column;gap:6px}
+.home-stat-intro>span:last-child{font-size:11px;color:#dce5f5;font-weight:700}
+.home-stat{display:flex;flex-direction:column;gap:5px;padding-left:17px;border-left:1px solid #ffffff18}
+.home-stat strong{font-size:23px;line-height:1.1;letter-spacing:-.04em;color:#f1f5ff}
+.home-stat span{font:8px 'DM Mono',monospace;letter-spacing:.1em;color:#8292b2}
+.home-explore-section,.home-latest-section{margin-bottom:42px}
+.home-section-heading{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:16px}
+.home-section-heading h2{margin:7px 0 4px;font-size:25px;letter-spacing:-.045em}
+.home-section-heading p{margin:0;color:#91a0bf;font-size:11px;line-height:1.7}
+.home-heading-note{padding-bottom:5px;color:#8998b7;font-size:10px}
+.home-explore-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.home-explore-card{min-height:198px;display:flex;flex-direction:column;align-items:flex-start;text-align:left;padding:15px;border:1px solid #ffffff17;border-radius:10px;background:#161f39;color:#f4f7ff;transition:transform .16s,border-color .16s,background .16s}
+.home-explore-card:hover{transform:translateY(-3px);border-color:#8de4ff55;background:#1a2743}
+.home-card-index{font:8px 'DM Mono',monospace;letter-spacing:.1em;color:#8494b3}
+.home-explore-symbol{display:grid;place-items:center;width:37px;height:37px;margin:14px 0;border:1px solid #8de4ff35;border-radius:9px;background:#8de4ff0e;color:#8de4ff;font-size:19px}
+.home-explore-card strong{font-size:12px;line-height:1.5}
+.home-explore-card>span:nth-last-of-type(1){margin-top:5px;color:#9caac5;font-size:10px;line-height:1.65}
+.home-explore-card b{margin-top:auto;padding-top:15px;color:#8de4ff;font-size:9px}
+.home-explore-chat .home-explore-symbol{color:#c2adff;border-color:#c2adff35;background:#c2adff0d}
+.home-explore-speed .home-explore-symbol{color:#ffd58b;border-color:#ffd58b35;background:#ffd58b0d}
+.home-explore-points .home-explore-symbol{color:#9de5bf;border-color:#9de5bf35;background:#9de5bf0d}
+.home-latest-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+.home-latest-card{display:flex;flex-direction:column;min-height:175px;padding:15px;border:1px solid #ffffff17;border-radius:10px;background:#151e35}
+.home-latest-meta{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.home-latest-meta time{color:#7888a8;font:9px 'DM Mono',monospace}
+.home-latest-card h3{margin:13px 0 7px;font-size:14px;line-height:1.45;letter-spacing:-.02em}
+.home-latest-card p{margin:0;color:#a0aec8;font-size:10px;line-height:1.7}
+.home-latest-byline{margin-top:auto;padding-top:14px;color:#7f90b1;font:9px 'DM Mono',monospace}
+.home-latest-attachment{margin-top:7px;color:#8de4ff;font:8px 'DM Mono',monospace}
+.home-text-link{padding:8px 0;border:0;background:none;color:#8de4ff;font-size:10px;font-weight:800;white-space:nowrap}
+.home-feed-aside .side-card{margin-bottom:11px}
+.home-room-link{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;padding:10px 0;border:0;border-top:1px solid #ffffff13;background:none;color:#dce5f5;font-size:10px;text-align:left}
+.home-room-link:first-of-type{margin-top:10px}
+.home-room-link span{color:#8192b0;font-size:9px}
+.home-challenge-card{background:linear-gradient(145deg,#252c49,#171f37)}
+.home-points-card{background:linear-gradient(145deg,#1b3340,#151f36)}
+#feed-section{scroll-margin-top:20px}
+#home-latest{scroll-margin-top:20px}
