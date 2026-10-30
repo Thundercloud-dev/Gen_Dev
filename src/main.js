@@ -14,6 +14,10 @@ let posts = []
 let filter = 'all'
 let progress = { current_level: 1, unlocked_level: 1, total_jumps: 0, best_score: 0, coins: 0 }
 let game
+let activeChatChannel = 'general'
+let chatSubscription = null
+let chatRefreshTimer = null
+let lastChatSend = 0
 
 function modal(id, show = true) { $(id).classList.toggle('hidden', !show) }
 function message(id, text, error = false) {
@@ -44,7 +48,7 @@ function accountUI() {
 async function ensureProfile() {
   if (!db || !user) { profile = null; return }
   const { data, error } = await db.from('profiles')
-    .select('id,username,display_name,avatar_path')
+    .select('id,username,display_name,avatar_path,role_tag,featured_badge')
     .eq('id', user.id)
     .maybeSingle()
   if (error) { console.warn('Profile lookup failed:', error.message); return }
@@ -52,19 +56,23 @@ async function ensureProfile() {
   const username = 'runner_' + user.id.replace(/-/g, '').slice(0, 10)
   const displayName = String(user.user_metadata?.display_name || 'Runner').slice(0, 30)
   const { data: created, error: createError } = await db.from('profiles')
-    .insert({ id: user.id, username, display_name: displayName })
+    .insert({ id: user.id, username, display_name: displayName, role_tag: 'community' })
     .select('id,username,display_name,avatar_path')
     .single()
   if (!createError) profile = created
   else console.warn('Profile creation failed:', createError.message)
 }
 function view(name) {
-  for (const id of ['community', 'players', 'game', 'shop']) {
+  for (const id of ['community', 'players', 'game', 'shop', 'chat', 'speedruns', 'integrations']) {
     $('' + id + '-view').classList.toggle('hidden', id !== name)
   }
   document.querySelectorAll('.tab').forEach(button => button.classList.toggle('active', button.dataset.view === name))
   if (name === 'game') game.draw()
   if (name === 'players') { renderOwnProfile(); loadPlayers() }
+  if (name === 'chat') startChat()
+  else stopChat()
+  if (name === 'speedruns') loadSpeedrunGames('')
+  if (name === 'integrations') setupIntegrations()
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => view(button.dataset.view)))
@@ -154,6 +162,13 @@ function renderPosts() {
       del.textContent = 'Delete'
       del.onclick = () => deletePost(post.id, post.media_path)
       foot.append(del)
+    }
+    if (post.post_type === 'clip' && (!user || user.id !== post.user_id)) {
+      const support = document.createElement('button')
+      support.className = 'support-creator'
+      support.textContent = '♡ Support creator'
+      support.onclick = () => modal('donation-info-modal')
+      card.append(support)
     }
     card.append(foot)
     root.append(card)
@@ -366,7 +381,41 @@ function renderOwnProfile() {
   upload.textContent = 'Change avatar'
   upload.onclick = () => $('avatar-file').click()
   row.append(info, upload)
-  root.append(row)
+  const roleBox = document.createElement('div')
+  roleBox.className = 'profile-role-row'
+  const roleLabel = document.createElement('label')
+  roleLabel.textContent = 'Community tag'
+  const roleSelect = document.createElement('select')
+  roleSelect.className = 'search role-select'
+  for (const [value, label] of [['community','Community member'],['developer','Developer'],['creator','YouTuber / Creator'],['gamer','Gamer'],['speedrunner','Speedrunner']]) {
+    const option = document.createElement('option')
+    option.value = value
+    option.textContent = label
+    roleSelect.append(option)
+  }
+  roleSelect.value = profile.role_tag || 'community'
+  const saveRole = document.createElement('button')
+  saveRole.className = 'btn outline'
+  saveRole.textContent = 'Save tag'
+  saveRole.onclick = async () => {
+    const { data, error } = await db.from('profiles')
+      .update({ role_tag: roleSelect.value })
+      .eq('id', user.id)
+      .select('id,username,display_name,avatar_path,role_tag,featured_badge')
+      .single()
+    if (error) return message('player-message', error.message, true)
+    profile = data
+    accountUI()
+    message('player-message', 'Your community tag was updated.')
+  }
+  roleBox.append(roleLabel, roleSelect, saveRole)
+  root.append(row, roleBox)
+  if (profile.featured_badge) {
+    const special = document.createElement('div')
+    special.className = 'featured-badge'
+    special.textContent = '✦ ' + profile.featured_badge.toUpperCase()
+    root.append(special)
+  }
 }
 $('avatar-file').onchange = async () => {
   const file = $('avatar-file').files?.[0]
@@ -674,3 +723,230 @@ if (db) {
 } else {
   $('posts').textContent = 'Supabase setup is missing. Configure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in Vercel.'
 }
+
+
+/* Gendev live community chat */
+const CHAT_CHANNELS = {
+  general: 'General',
+  developers: 'Developers',
+  creators: 'Creators & YouTubers',
+  gaming: 'Gaming',
+  speedrunning: 'Speedrunning',
+  defeats: 'Greatest defeats'
+}
+function startChat() {
+  if (!db) { $('chat-messages').textContent = 'Chat needs the Supabase connection.'; return }
+  loadChat()
+  if (chatSubscription) return
+  chatSubscription = db.channel('gendev-community-chat')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'community_messages' }, payload => {
+      if (!payload.new?.channel || payload.new.channel === activeChatChannel) loadChat()
+      if (payload.old?.channel === activeChatChannel) loadChat()
+    })
+    .subscribe()
+  chatRefreshTimer = setInterval(loadChat, 12000)
+}
+function stopChat() {
+  if (chatRefreshTimer) clearInterval(chatRefreshTimer)
+  chatRefreshTimer = null
+  if (chatSubscription && db) db.removeChannel(chatSubscription)
+  chatSubscription = null
+}
+function setChatChannel(channel) {
+  if (!Object.prototype.hasOwnProperty.call(CHAT_CHANNELS, channel)) return
+  activeChatChannel = channel
+  $('chat-channel-title').textContent = CHAT_CHANNELS[channel]
+  document.querySelectorAll('[data-chat-channel]').forEach(button => button.classList.toggle('active', button.dataset.chatChannel === channel))
+  loadChat()
+}
+document.querySelectorAll('[data-chat-channel]').forEach(button => {
+  button.onclick = () => setChatChannel(button.dataset.chatChannel)
+})
+async function loadChat() {
+  if (!db) return
+  const root = $('chat-messages')
+  if (!root) return
+  const { data, error } = await db.from('community_messages')
+    .select('id,user_id,channel,author_name,body,created_at')
+    .eq('channel', activeChatChannel)
+    .order('created_at', { ascending: true })
+    .limit(100)
+  if (error) { root.textContent = 'Could not load chat: ' + error.message; return }
+  const userIds = [...new Set((data || []).map(item => item.user_id))]
+  let profilesById = {}
+  if (userIds.length) {
+    const { data: profileRows } = await db.from('profiles')
+      .select('id,username,role_tag,featured_badge')
+      .in('id', userIds)
+    profilesById = Object.fromEntries((profileRows || []).map(item => [item.id, item]))
+  }
+  root.replaceChildren()
+  if (!data?.length) {
+    const empty = document.createElement('div')
+    empty.className = 'empty'
+    empty.textContent = 'No messages yet. Start the conversation!'
+    root.append(empty)
+    return
+  }
+  for (const item of data) {
+    const card = document.createElement('article')
+    card.className = 'chat-message'
+    const heading = document.createElement('div')
+    heading.className = 'chat-message-head'
+    const author = document.createElement('strong')
+    const player = profilesById[item.user_id]
+    author.textContent = player?.username || item.author_name || 'Gendev member'
+    heading.append(author)
+    if (player?.role_tag && player.role_tag !== 'community') {
+      const tag = document.createElement('span')
+      tag.className = 'role-pill'
+      tag.textContent = player.role_tag
+      heading.append(tag)
+    }
+    if (player?.featured_badge) {
+      const featured = document.createElement('span')
+      featured.className = 'featured-pill'
+      featured.textContent = '✦ ' + player.featured_badge
+      heading.append(featured)
+    }
+    const time = document.createElement('time')
+    time.textContent = new Date(item.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    heading.append(time)
+    const body = document.createElement('p')
+    body.textContent = item.body
+    card.append(heading, body)
+    const actions = document.createElement('div')
+    actions.className = 'chat-actions'
+    if (user && user.id === item.user_id) {
+      const remove = document.createElement('button')
+      remove.textContent = 'Delete'
+      remove.onclick = async () => {
+        const { error: deleteError } = await db.from('community_messages').delete().eq('id', item.id).eq('user_id', user.id)
+        if (deleteError) alert(deleteError.message)
+        else loadChat()
+      }
+      actions.append(remove)
+    }
+    if (user && user.id !== item.user_id) {
+      const report = document.createElement('button')
+      report.textContent = 'Report'
+      report.onclick = async () => {
+        const reason = prompt('Briefly tell the moderators what is wrong with this message.')
+        if (!reason || reason.trim().length < 3) return
+        const { error: reportError } = await db.from('community_message_reports').insert({
+          message_id: item.id,
+          reporter_id: user.id,
+          reason: reason.trim().slice(0, 500)
+        })
+        if (reportError) alert(reportError.message)
+        else alert('Report sent to the moderation queue.')
+      }
+      actions.append(report)
+    }
+    if (actions.childNodes.length) card.append(actions)
+    root.append(card)
+  }
+  root.scrollTop = root.scrollHeight
+}
+$('chat-form').onsubmit = async event => {
+  event.preventDefault()
+  if (!user || !db) { modal('auth-modal'); return }
+  const body = $('chat-input').value.trim()
+  if (!body) return
+  if (Date.now() - lastChatSend < 2500) return message('chat-status', 'Please wait a moment before sending another message.', true)
+  if (body.length > 800) return message('chat-status', 'Messages must be 800 characters or fewer.', true)
+  lastChatSend = Date.now()
+  const button = $('chat-send')
+  button.disabled = true
+  const { error } = await db.from('community_messages').insert({
+    user_id: user.id,
+    channel: activeChatChannel,
+    author_name: profile?.username || 'Gendev member',
+    body
+  })
+  button.disabled = false
+  if (error) return message('chat-status', error.message, true)
+  $('chat-input').value = ''
+  message('chat-status', '')
+  loadChat()
+}
+
+/* Official Speedrun.com public API search (via a small server-side proxy). */
+async function loadSpeedrunGames(query) {
+  const root = $('speedrun-results')
+  if (!root) return
+  if (!query.trim()) {
+    root.textContent = 'Search for a game to find its Speedrun.com leaderboard.'
+    return
+  }
+  root.textContent = 'Searching Speedrun.com…'
+  try {
+    const response = await fetch('/api/speedrun-games?q=' + encodeURIComponent(query.trim()))
+    const result = await response.json()
+    if (!response.ok) throw new Error(result.error || 'Speedrun.com search failed.')
+    root.replaceChildren()
+    if (!result.games?.length) {
+      root.textContent = 'No matching games found.'
+      return
+    }
+    for (const game of result.games) {
+      const card = document.createElement('article')
+      card.className = 'integration-result'
+      const name = document.createElement('strong')
+      name.textContent = game.name
+      const abbreviation = document.createElement('span')
+      abbreviation.textContent = game.abbreviation || 'Speedrun.com game'
+      const link = document.createElement('a')
+      link.href = game.url
+      link.target = '_blank'
+      link.rel = 'noopener noreferrer'
+      link.textContent = 'Open leaderboard ↗'
+      card.append(name, abbreviation, link)
+      root.append(card)
+    }
+  } catch (error) {
+    root.textContent = error.message || 'Could not search Speedrun.com right now.'
+  }
+}
+let speedrunSearchTimer = null
+$('speedrun-search').addEventListener('input', () => {
+  clearTimeout(speedrunSearchTimer)
+  speedrunSearchTimer = setTimeout(() => loadSpeedrunGames($('speedrun-search').value), 450)
+})
+function setupIntegrations() {
+  const discordCard = $('discord-integration')
+  const invite = import.meta.env.VITE_DISCORD_INVITE_URL || ''
+  const serverId = import.meta.env.VITE_DISCORD_SERVER_ID || ''
+  discordCard.replaceChildren()
+  const title = document.createElement('h3')
+  title.textContent = 'Discord community'
+  const text = document.createElement('p')
+  if (serverId && /^\d{15,25}$/.test(serverId)) {
+    const iframe = document.createElement('iframe')
+    iframe.className = 'discord-widget'
+    iframe.src = 'https://discord.com/widget?id=' + encodeURIComponent(serverId) + '&theme=dark'
+    iframe.title = 'Gendev Discord server widget'
+    iframe.loading = 'lazy'
+    iframe.allow = 'clipboard-write'
+    discordCard.append(title, iframe)
+  } else {
+    text.textContent = 'Add your Discord server ID in Vercel to show the live server widget.'
+    discordCard.append(title, text)
+  }
+  if (invite && /^https:\/\/(discord\.gg|discord\.com\/invite)\//i.test(invite)) {
+    const link = document.createElement('a')
+    link.href = invite
+    link.target = '_blank'
+    link.rel = 'noopener noreferrer'
+    link.className = 'integration-link'
+    link.textContent = 'Join the Gendev Discord ↗'
+    discordCard.append(link)
+  } else {
+    const note = document.createElement('p')
+    note.textContent = 'Set VITE_DISCORD_INVITE_URL after creating or choosing your server.'
+    discordCard.append(note)
+  }
+}
+$('speedrun-search-button').onclick = () => loadSpeedrunGames($('speedrun-search').value)
+$('donations-learn-more').onclick = () => modal('donation-info-modal')
+$('buy-button').onclick = () => modal('donation-info-modal')
