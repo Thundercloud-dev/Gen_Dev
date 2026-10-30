@@ -25,6 +25,9 @@ let activeChatChannel = 'general'
 let chatSubscription = null
 let chatRefreshTimer = null
 let lastChatSend = 0
+let pointMissions = []
+let pointClaims = []
+let selectedPointMission = null
 
 function modal(id, show = true) { $(id).classList.toggle('hidden', !show) }
 function message(id, text, error = false) {
@@ -70,12 +73,13 @@ async function ensureProfile() {
   else console.warn('Profile creation failed:', createError.message)
 }
 function view(name) {
-  for (const id of ['community', 'players', 'game', 'shop', 'chat', 'speedruns', 'integrations']) {
+  for (const id of ['community', 'players', 'rewards', 'game', 'shop', 'chat', 'speedruns', 'integrations']) {
     $('' + id + '-view').classList.toggle('hidden', id !== name)
   }
   document.querySelectorAll('.tab').forEach(button => button.classList.toggle('active', button.dataset.view === name))
   if (name === 'game') game.draw()
   if (name === 'players') { renderOwnProfile(); loadPlayers() }
+  if (name === 'rewards') loadPoints()
   if (name === 'chat') startChat()
   else stopChat()
   if (name === 'speedruns') loadSpeedrunGames('')
@@ -285,12 +289,14 @@ function clearSignedInState() {
   session = null
   profile = null
   progress = { current_level: 1, unlocked_level: 1, total_jumps: 0, best_score: 0, coins: 0 }
+  pointClaims = []
   authGateToken = null
   pendingLoginMfa = null
   accountUI()
   $('best').textContent = '0'
   renderOwnProfile()
   void renderMfaSettings()
+  void loadPoints()
   loadPosts()
 }
 let authGateBusy = false
@@ -648,12 +654,159 @@ async function beginMfaEnrollment(root, button) {
   }
 }
 
+
+/* Gendev points: claims are reviewed before the database awards points. */
+function pointElement(tag, className, text) {
+  const node = document.createElement(tag)
+  if (className) node.className = className
+  if (text !== undefined) node.textContent = text
+  return node
+}
+async function loadPoints() {
+  const missionRoot = $('point-missions')
+  if (!missionRoot || !db) {
+    if (missionRoot) missionRoot.textContent = 'Points are unavailable because the database is not configured.'
+    return
+  }
+  const { data: missions, error: missionError } = await db.from('point_missions')
+    .select('id,title,description,category,points,sort_order')
+    .order('sort_order', { ascending: true })
+  if (missionError) {
+    missionRoot.textContent = 'Could not load missions: ' + missionError.message
+    return
+  }
+  pointMissions = missions || []
+  pointClaims = []
+  if (user) {
+    const { data: claims, error: claimError } = await db.from('point_claims')
+      .select('id,mission_id,status,awarded_points,created_at,reviewed_at')
+      .order('created_at', { ascending: false })
+    if (claimError) console.warn('Could not load point claims:', claimError.message)
+    else pointClaims = claims || []
+  }
+  renderPoints()
+}
+function openPointMission(missionId) {
+  if (!user) {
+    setAuthMode('signin')
+    modal('auth-modal')
+    return
+  }
+  const mission = pointMissions.find(item => item.id === missionId)
+  if (!mission) return
+  selectedPointMission = mission
+  $('point-submit-title').textContent = mission.title
+  $('point-submit-points').textContent = '+' + mission.points + ' Gendev points if approved'
+  $('point-proof').value = ''
+  $('point-proof-url').value = ''
+  message('point-submit-message', '')
+  modal('point-submit-modal')
+}
+function renderPoints() {
+  const root = $('point-missions')
+  const history = $('points-history')
+  if (!root || !history) return
+  root.replaceChildren()
+  history.replaceChildren()
+  const approvedClaims = pointClaims.filter(item => item.status === 'approved')
+  const pendingClaims = pointClaims.filter(item => item.status === 'pending')
+  const balance = approvedClaims.reduce((sum, item) => sum + (Number(item.awarded_points) || 0), 0)
+  $('points-balance').textContent = balance.toLocaleString()
+  $('points-approved').textContent = String(approvedClaims.length)
+  $('points-pending').textContent = String(pendingClaims.length)
+  $('points-login-note').classList.toggle('hidden', !!user)
+  $('points-login-note').textContent = user ? '' : 'Sign in to submit missions and keep your points balance saved to your account.'
+  if (!pointMissions.length) root.append(pointElement('div', 'empty', 'No missions are available right now.'))
+  const latestByMission = new Map()
+  for (const claim of pointClaims) if (!latestByMission.has(claim.mission_id)) latestByMission.set(claim.mission_id, claim)
+  for (const mission of pointMissions) {
+    const claim = latestByMission.get(mission.id)
+    const card = pointElement('article', 'mission-card')
+    const top = pointElement('div', 'mission-card-top')
+    top.append(pointElement('span', 'mission-category', mission.category.toUpperCase()))
+    top.append(pointElement('strong', 'mission-points', '+' + mission.points + ' PTS'))
+    const title = pointElement('h4', '', mission.title)
+    const description = pointElement('p', 'mission-description', mission.description)
+    const footer = pointElement('div', 'mission-card-foot')
+    if (claim?.status === 'approved') {
+      footer.append(pointElement('span', 'mission-status approved', '✓ Earned'))
+    } else if (claim?.status === 'pending') {
+      footer.append(pointElement('span', 'mission-status pending', 'In review'))
+    } else {
+      if (claim?.status === 'rejected') footer.append(pointElement('span', 'mission-status rejected', 'Needs another submission'))
+      const button = pointElement('button', 'btn outline mission-submit', user ? (claim?.status === 'rejected' ? 'Submit again' : 'Submit proof') : 'Sign in to join')
+      button.type = 'button'
+      button.onclick = () => openPointMission(mission.id)
+      footer.append(button)
+    }
+    card.append(top, title, description, footer)
+    root.append(card)
+  }
+  if (!user) {
+    history.append(pointElement('div', 'empty', 'Sign in to see your points history.'))
+  } else if (!pointClaims.length) {
+    history.append(pointElement('div', 'empty', 'No mission submissions yet. Pick a mission above to get started.'))
+  } else {
+    const missionNames = new Map(pointMissions.map(item => [item.id, item.title]))
+    for (const claim of pointClaims.slice(0, 12)) {
+      const row = pointElement('div', 'point-history-row')
+      const info = pointElement('div', 'point-history-info')
+      info.append(
+        pointElement('strong', '', missionNames.get(claim.mission_id) || 'Gendev mission'),
+        pointElement('span', '', new Date(claim.created_at).toLocaleDateString())
+      )
+      const result = pointElement('div', 'point-history-result')
+      const amount = claim.status === 'approved' ? '+' + (Number(claim.awarded_points) || 0) + ' pts' : claim.status === 'pending' ? 'Pending' : 'Try again'
+      result.append(pointElement('strong', 'history-' + claim.status, amount))
+      row.append(info, result)
+      history.append(row)
+    }
+  }
+}
+$('point-submit-form').onsubmit = async event => {
+  event.preventDefault()
+  if (!user || !db || !selectedPointMission) {
+    modal('point-submit-modal', false)
+    setAuthMode('signin')
+    modal('auth-modal')
+    return
+  }
+  const proofText = $('point-proof').value.trim()
+  const proofRaw = $('point-proof-url').value.trim()
+  const proofUrl = proofRaw ? validUrl(proofRaw) : null
+  if (proofText.length < 10) return message('point-submit-message', 'Please add at least 10 characters describing your proof.', true)
+  if (proofRaw && !proofUrl) return message('point-submit-message', 'Please enter a valid http or https evidence link.', true)
+  const button = $('point-submit-button')
+  button.disabled = true
+  button.textContent = 'Submitting…'
+  try {
+    const { error } = await db.from('point_claims').insert({
+      user_id: user.id,
+      mission_id: selectedPointMission.id,
+      proof_text: proofText,
+      proof_url: proofUrl
+    })
+    if (error) throw error
+    modal('point-submit-modal', false)
+    await loadPoints()
+  } catch (error) {
+    const note = error?.code === '23505'
+      ? 'You already have a pending or approved submission for this mission.'
+      : (error.message || 'Could not submit this mission. Please try again.')
+    message('point-submit-message', note, true)
+  } finally {
+    button.disabled = false
+    button.textContent = 'Send for review'
+  }
+}
+
+
 async function afterAuth() {
   if (user) await ensureProfile()
   else profile = null
   accountUI()
   await renderMfaSettings()
-  await Promise.all([loadPosts(), loadProgress()])
+  await Promise.all([loadPosts(), loadProgress(), loadPoints()])
   if (!$('players-view').classList.contains('hidden')) loadPlayers()
 }
 $('signout').onclick = async () => {
