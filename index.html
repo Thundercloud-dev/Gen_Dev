@@ -23,19 +23,62 @@
   <div class="account"><span id="account">Browsing as guest</span><button id="auth-open" class="btn outline">Sign in</button><button id="signout" class="btn outline hidden">Sign out</button></div>
 </header>
 
-<section class="hero">
-  <div>
-    <div class="eyebrow">THE SPEEDRUNNING COMMUNITY</div>
-    <h1>Share the run.<br><span>Find your next record.</span></h1>
-    <p>Post your best clips, trade strategies, search for runners, and learn from the community. Every second counts.</p>
-    <button class="btn primary" id="explore">Explore community ↗</button>
-    <button class="btn outline" data-goto="game">Try Quick Run</button>
+<main id="community-view">
+<section class="hero home-hero">
+  <div class="hero-copy">
+    <div class="eyebrow">GAMES · CREATION · COMMUNITY</div>
+    <h1>Make something.<br><span>Find your people.</span></h1>
+    <p>A home for developers, creators, gamers, and speedrunners. Show what you're working on, find people who like the same games, and share the little wins along the way.</p>
+    <div class="hero-actions">
+      <button class="btn primary" id="explore">See what's happening ↓</button>
+      <button class="btn outline" data-goto="game">Play Quick Run</button>
+    </div>
+    <div class="hero-byline"><span>Independent community</span><span>Built around what members make and play</span></div>
   </div>
-  <div class="hero-graphic"><div class="orbit"></div><div class="cloud">☁</div><span class="chip">RUN · REPEAT · IMPROVE</span></div>
+  <div class="hero-board">
+    <div class="hero-board-top"><span>THE GENDEV MIX</span><span class="hero-board-mark">G / 01</span></div>
+    <div class="hero-board-feature">
+      <span class="hero-board-label">SIDE QUEST · QUICK RUN</span>
+      <div class="hero-board-art"><span class="hero-board-cloud">☁</span><span class="hero-board-spark">✳</span><span class="hero-board-track"></span></div>
+      <h2>Got a new high score in you?</h2>
+      <p>A quick little challenge between projects. Jump in, dodge the obstacles, and try to beat your record.</p>
+      <button class="hero-board-link" data-goto="game">Play a round <span>↗</span></button>
+    </div>
+    <div class="hero-board-bottom"><span>BUILD</span><span>SHARE</span><span>PLAY</span><span>REPEAT</span></div>
+  </div>
 </section>
 
-<main id="community-view">
-  <div class="section-head">
+<section class="home-stat-strip" aria-label="Gendev community statistics">
+  <div class="home-stat-intro"><span class="eyebrow">A LITTLE LOOK AROUND</span><span>What's growing on Gendev</span></div>
+  <div class="home-stat"><strong id="home-member-count">—</strong><span>MEMBERS</span></div>
+  <div class="home-stat"><strong id="home-post-count">—</strong><span>COMMUNITY POSTS</span></div>
+  <div class="home-stat"><strong id="home-mission-count">—</strong><span>OPEN MISSIONS</span></div>
+</section>
+
+<section class="home-explore-section">
+  <div class="home-section-heading"><div><span class="eyebrow">PICK YOUR CORNER</span><h2>There's more than one way to join in.</h2></div><span class="home-heading-note">Find your next thing to do.</span></div>
+  <div class="home-explore-grid">
+    <button class="home-explore-card home-explore-project" id="home-share-project" type="button">
+      <span class="home-card-index">01 / MAKE</span><span class="home-explore-symbol">⌘</span><strong>Show what you're building</strong><span>Projects, works in progress, tutorials, and ideas.</span><b>Share a project ↗</b>
+    </button>
+    <button class="home-explore-card home-explore-chat" type="button" data-goto="chat">
+      <span class="home-card-index">02 / TALK</span><span class="home-explore-symbol">↗</span><strong>Find your people</strong><span>Hang out in topic rooms for creators, developers, and gamers.</span><b>Open community chat ↗</b>
+    </button>
+    <button class="home-explore-card home-explore-speed" type="button" data-goto="speedruns">
+      <span class="home-card-index">03 / PLAY</span><span class="home-explore-symbol">⌁</span><strong>Chase a better time</strong><span>Look up games and browse their speedrun leaderboards.</span><b>Explore speedruns ↗</b>
+    </button>
+    <button class="home-explore-card home-explore-points" type="button" data-goto="rewards">
+      <span class="home-card-index">04 / EARN</span><span class="home-explore-symbol">✦</span><strong>Complete community missions</strong><span>Earn Gendev points for challenges and contributions.</span><b>See available missions ↗</b>
+    </button>
+  </div>
+</section>
+
+<section class="home-latest-section" id="home-latest">
+  <div class="home-section-heading"><div><span class="eyebrow">FRESH FROM THE COMMUNITY</span><h2>What people are posting</h2><p>New projects, clips, questions, and helpful discoveries.</p></div><button class="home-text-link" id="home-view-feed" type="button">Browse the full feed ↗</button></div>
+  <div id="home-latest-posts" class="home-latest-grid"><div class="empty">Loading recent posts…</div></div>
+</section>
+
+  <div class="section-head" id="feed-section">
     <div><div class="eyebrow">THE FEED</div><h2>Gendev community feed</h2><p>Projects, creator videos, gaming stories, speedruns, and useful discoveries.</p></div>
     <button class="btn primary" id="post-open">＋ Create a post</button>
   </div>
@@ -47,10 +90,16 @@
       </div>
       <div id="posts"><div class="empty">Loading community posts…</div></div>
     </section>
-    <aside>
-      <div class="side-card welcome"><div class="eyebrow">WELCOME, RUNNER</div><h3>Every run has a story.</h3><p>Share a moment, help someone beat a level, or celebrate a new personal best.</p><button class="btn dark" id="share">Share something</button></div>
-      <div class="side-card"><div class="eyebrow">COMMUNITY GUIDELINES</div><ul><li>Be helpful and respectful.</li><li>Only post files you have permission to share.</li><li>Keep tips clear and useful.</li></ul></div>
-      <div class="side-card"><div class="eyebrow">QUICK CHALLENGE ⚡</div><h3>Got 30 seconds?</h3><p>Dodge blocks and speedy storm sprites.</p><button class="link" data-goto="game">Play Quick Run →</button></div>
+    <aside class="home-feed-aside">
+      <div class="side-card welcome"><div class="eyebrow">NEW AROUND HERE?</div><h3>Everyone starts somewhere.</h3><p>Share an unfinished build, ask a question, or post a tip you wish you'd known sooner.</p><button class="btn dark" id="share">Make your first post</button></div>
+      <div class="side-card home-room-card"><div class="eyebrow">FIND A ROOM</div><h3>Pick a conversation.</h3>
+        <button class="home-room-link" data-goto="chat"># Developers <span>Builds &amp; code ↗</span></button>
+        <button class="home-room-link" data-goto="chat"># Creators <span>Videos &amp; channels ↗</span></button>
+        <button class="home-room-link" data-goto="chat"># Gaming <span>Games &amp; updates ↗</span></button>
+      </div>
+      <div class="side-card home-challenge-card"><div class="eyebrow">SIDE QUEST</div><h3>Quick Run: Storm Mode</h3><p>How far can you get before the next obstacle?</p><button class="link" data-goto="game">Start a run ↗</button></div>
+      <div class="side-card home-points-card"><div class="eyebrow">GENDEV POINTS</div><h3>Little tasks, extra points.</h3><p>Follow game communities, beat a challenge, or help another member.</p><button class="link" data-goto="rewards">See the missions ↗</button></div>
+      <div class="side-card"><div class="eyebrow">KEEP IT GOOD</div><p>Be helpful, give credit, and only share work you have permission to post. Gendev is better when everyone can join in.</p></div>
     </aside>
   </div>
 </main>
