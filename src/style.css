@@ -15,3 +15,18 @@
 
 .tag.project{background:#46d3a21f;color:#89e6c2}.tag.video{background:#ff8db21f;color:#ffc1d3}.tag.discussion{background:#ffd36a1f;color:#ffe09a}.tag.defeat{background:#b18cff20;color:#cdb8ff}
 .filters{flex-wrap:wrap}
+
+/* Gendev account security */
+.auth-card{width:min(100%,460px);max-height:min(92vh,780px);overflow:auto;background:linear-gradient(160deg,#1e2b4d,#121b34 72%);border-color:#86dfff35;box-shadow:0 28px 100px #000b,0 0 50px #69d6ff12}
+.auth-card h2{letter-spacing:-.045em}.auth-card h3{margin:12px 0 7px;color:#f4f7ff}.auth-hint{margin:8px 0 12px;color:#8fa2c4;font-size:10px;line-height:1.7}
+.auth-card input:focus-visible,.auth-card button:focus-visible{outline:2px solid #8de4ff;outline-offset:2px}
+.text-button{display:block;margin:12px auto 0;padding:5px;border:0;background:none;color:#8de4ff;font-size:11px;font-weight:800}
+.mfa-settings{margin-top:16px;padding:15px;border:1px solid #8de4ff2d;border-radius:12px;background:linear-gradient(145deg,#14243e,#111a31)}
+.mfa-settings-heading{margin-bottom:8px;color:#8de4ff;font:10px 'DM Mono',monospace;letter-spacing:.15em}
+.mfa-settings p{color:#aab9d4;font-size:11px;line-height:1.7}
+.mfa-enrollment{display:grid;justify-items:start;gap:9px;margin-top:14px;padding-top:12px;border-top:1px solid #ffffff17}
+.mfa-qr{width:190px;height:190px;padding:9px;border-radius:10px;background:white;object-fit:contain}
+.mfa-secret{display:block;max-width:100%;overflow-wrap:anywhere;padding:9px;border-radius:7px;background:#091225;color:#b6edff;font-size:11px}
+.mfa-verify-form{display:flex;flex-wrap:wrap;gap:8px;width:100%}
+.mfa-verify-form input{flex:1;min-width:120px;padding:10px;border:1px solid #ffffff24;border-radius:8px;background:#0d1730;color:#fff}
+.mfa-verify-form button{flex:1}
