@@ -391,7 +391,7 @@ $('auth-form').onsubmit = async event => {
     if (accountName.length < 3 || accountName.length > 30) {
       return message('auth-message', 'Your account name must be between 3 and 30 characters.', true)
     }
-    if (!/[\\p{L}\\p{N}]/u.test(accountName)) {
+    if (!/[\p{L}\p{N}]/u.test(accountName)) {
       return message('auth-message', 'Your account name must include at least one letter or number.', true)
     }
     const problems = passwordProblems(password)
