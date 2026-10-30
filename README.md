@@ -4,7 +4,10 @@ Gendev is a community hub for developers, video creators, gamers, speedrunners, 
 
 ## Current features
 
-- Supabase email/password accounts.
+- Supabase email/password accounts using the PKCE browser flow.
+- Authenticator-app TOTP enrollment and sign-in challenge for accounts that opt in.
+- Database-enforced MFA assurance checks for enrolled accounts across profiles, posts, chat, reports, levels, progress, and leaderboard data.
+- Password recovery by email and 12-character mixed-character password checks in the Gendev forms.
 - Public community feed for clips, tips, and project links.
 - Image and short-video attachments, plus profile avatars.
 - Searchable public player directory and self-selected community tags.
@@ -39,3 +42,9 @@ Game discovery uses the official Speedrun.com API at `https://www.speedrun.com/a
 npm install
 npm run dev
 ```
+
+## Account security notes
+
+Gendev uses Supabase Auth for password handling; passwords are never stored by Gendev's application code. Authenticator-based MFA is optional per account, but once an account enrolls a verified authenticator, the database requires an AAL2 session for authenticated access to the protected community tables. Users should keep access to their authenticator and their verified email address.
+
+Two provider-side protections still need to be enabled in the Supabase Auth dashboard: enforce the same minimum password length and required character classes at the Auth service itself, and enable leaked-password protection where the project's plan supports it. CAPTCHA also requires a provider site key and secret; it is not enabled until those credentials are configured. The Supabase security advisor currently reports leaked-password protection as disabled. Client-side password checks are an extra layer, not a substitute for server-side Auth settings.
