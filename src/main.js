@@ -3,7 +3,14 @@ import './style.css'
 
 const url = import.meta.env.VITE_SUPABASE_URL
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-const db = url && key ? createClient(url, key) : null
+const db = url && key ? createClient(url, key, {
+  auth: {
+    flowType: 'pkce',
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+}) : null
 const $ = id => document.getElementById(id)
 const MAX_MEDIA_SIZE = 25 * 1024 * 1024
 const MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm']
@@ -258,59 +265,377 @@ $('post-form').onsubmit = async event => {
   }
 }
 
-$('auth-form').onsubmit = async event => {
-  event.preventDefault()
-  if (!db) return message('auth-message', 'Supabase is not configured in Vercel yet.', true)
-  message('auth-message', 'Signing in…')
-  const { data, error } = await db.auth.signInWithPassword({
-    email: $('email').value.trim(),
-    password: $('password').value
-  })
-  if (error) return message('auth-message', error.message, true)
-  session = data.session
-  user = data.user
-  await afterAuth()
-  modal('auth-modal', false)
-}
-$('signup').onclick = async () => {
-  if (!db) return message('auth-message', 'Supabase is not configured in Vercel yet.', true)
-  const email = $('email').value.trim()
-  const password = $('password').value
-  if (!email || password.length < 6) return message('auth-message', 'Enter an email and a password with at least 6 characters.', true)
-  message('auth-message', 'Creating account…')
-  const { data, error } = await db.auth.signUp({
-    email,
-    password,
-    options: { data: { display_name: email.split('@')[0].slice(0, 24) } }
-  })
-  if (error) return message('auth-message', error.message, true)
-  if (data.session) {
-    session = data.session
-    user = data.user
-    await afterAuth()
-    modal('auth-modal', false)
-  } else {
-    message('auth-message', 'Account created. Check your email to confirm, then sign in.')
+
+function switchAuthPanel(panelId) {
+  for (const id of ['auth-form', 'reset-form', 'mfa-login-panel']) {
+    $(id).classList.toggle('hidden', id !== panelId)
   }
 }
-async function afterAuth() {
-  if (user) await ensureProfile()
-  else profile = null
-  accountUI()
-  await Promise.all([loadPosts(), loadProgress()])
-  if (!$('players-view').classList.contains('hidden')) loadPlayers()
+function passwordProblems(password) {
+  const problems = []
+  if (password.length < 12) problems.push('at least 12 characters')
+  if (!/[a-z]/.test(password)) problems.push('a lowercase letter')
+  if (!/[A-Z]/.test(password)) problems.push('an uppercase letter')
+  if (!/[0-9]/.test(password)) problems.push('a number')
+  if (!/[^A-Za-z0-9]/.test(password)) problems.push('a symbol')
+  return problems
 }
-$('signout').onclick = async () => {
-  const { error } = await db.auth.signOut()
-  if (error) return alert(error.message)
+function clearSignedInState() {
   user = null
   session = null
   profile = null
   progress = { current_level: 1, unlocked_level: 1, total_jumps: 0, best_score: 0, coins: 0 }
+  authGateToken = null
+  pendingLoginMfa = null
   accountUI()
   $('best').textContent = '0'
-  loadPosts()
   renderOwnProfile()
+  loadPosts()
+}
+let authGateBusy = false
+let authGateToken = null
+let pendingLoginMfa = null
+
+async function handleAuthSession(nextSession) {
+  if (!db || !nextSession?.user || authGateBusy) return
+  authGateBusy = true
+  try {
+    const { data: assurance, error: assuranceError } = await db.auth.mfa.getAuthenticatorAssuranceLevel()
+    if (assuranceError) throw assuranceError
+
+    if (assurance?.nextLevel === 'aal2' && assurance?.currentLevel !== 'aal2') {
+      const { data: factors, error: factorsError } = await db.auth.mfa.listFactors()
+      if (factorsError) throw factorsError
+      const factor = (factors?.totp || []).find(item => item.status === 'verified')
+      if (!factor) {
+        user = null
+        profile = null
+        pendingLoginMfa = null
+        switchAuthPanel('mfa-login-panel')
+        message('mfa-login-message', 'This account requires an authenticator factor that is not available in this browser. Sign out and contact support for account recovery.', true)
+        modal('auth-modal')
+        return
+      }
+      const { data: challenge, error: challengeError } = await db.auth.mfa.challenge({ factorId: factor.id })
+      if (challengeError) throw challengeError
+      pendingLoginMfa = { factorId: factor.id, challengeId: challenge.id }
+      $('mfa-login-code').value = ''
+      switchAuthPanel('mfa-login-panel')
+      message('mfa-login-message', 'Open your authenticator app and enter its current 6-digit code.')
+      modal('auth-modal')
+      return
+    }
+
+    pendingLoginMfa = null
+    authGateToken = nextSession.access_token
+    session = nextSession
+    user = nextSession.user
+    await afterAuth()
+    modal('auth-modal', false)
+  } catch (error) {
+    console.error('Authentication verification failed:', error)
+    message('auth-message', 'We could not finish secure sign-in. Please try again.', true)
+    modal('auth-modal')
+  } finally {
+    authGateBusy = false
+  }
+}
+
+if (db) {
+  db.auth.onAuthStateChange((event, currentSession) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      setTimeout(() => {
+        user = currentSession?.user || null
+        switchAuthPanel('reset-form')
+        message('reset-message', 'Choose a new password for your account.')
+        modal('auth-modal')
+      }, 0)
+    } else if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+      setTimeout(() => handleAuthSession(currentSession), 0)
+    } else if (event === 'SIGNED_OUT') {
+      setTimeout(clearSignedInState, 0)
+    }
+  })
+}
+
+$('auth-form').onsubmit = async event => {
+  event.preventDefault()
+  if (!db) return message('auth-message', 'Supabase is not configured in Vercel yet.', true)
+  const button = $('auth-submit')
+  button.disabled = true
+  message('auth-message', 'Signing in securely…')
+  try {
+    const { error } = await db.auth.signInWithPassword({
+      email: $('email').value.trim(),
+      password: $('password').value
+    })
+    if (error) message('auth-message', 'Sign-in failed. Check your email and password, then try again.', true)
+    // A successful sign-in is completed by the auth-state listener, including MFA if enrolled.
+  } catch {
+    message('auth-message', 'Sign-in failed. Please try again.', true)
+  } finally {
+    button.disabled = false
+  }
+}
+
+$('signup').onclick = async () => {
+  if (!db) return message('auth-message', 'Supabase is not configured in Vercel yet.', true)
+  const emailInput = $('email')
+  const email = emailInput.value.trim()
+  const password = $('password').value
+  if (!email || !emailInput.checkValidity()) return message('auth-message', 'Enter a valid email address.', true)
+  const problems = passwordProblems(password)
+  if (problems.length) return message('auth-message', 'Use a password with ' + problems.join(', ') + '.', true)
+
+  const button = $('signup')
+  button.disabled = true
+  message('auth-message', 'Creating your account…')
+  try {
+    const { data, error } = await db.auth.signUp({
+      email,
+      password,
+      options: { data: { display_name: email.split('@')[0].slice(0, 24) } }
+    })
+    if (error) return message('auth-message', 'Account creation failed: ' + error.message, true)
+    if (data.session) {
+      message('auth-message', 'Account created. Finishing secure sign-in…')
+    } else {
+      message('auth-message', 'Account created. Check your email to confirm your address, then sign in.')
+    }
+  } catch {
+    message('auth-message', 'Account creation failed. Please try again.', true)
+  } finally {
+    button.disabled = false
+  }
+}
+
+$('forgot-password').onclick = async () => {
+  if (!db) return message('auth-message', 'Supabase is not configured in Vercel yet.', true)
+  const email = $('email').value.trim()
+  if (!email || !$('email').checkValidity()) return message('auth-message', 'Enter your email address first.', true)
+  const button = $('forgot-password')
+  button.disabled = true
+  message('auth-message', 'Requesting password recovery…')
+  try {
+    const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+    if (error) {
+      console.warn('Password recovery request:', error.message)
+    }
+    message('auth-message', 'If this email is registered, a password-reset link will be sent. Check your inbox.')
+  } catch {
+    message('auth-message', 'We could not send the reset link right now. Please try again.', true)
+  } finally {
+    button.disabled = false
+  }
+}
+
+$('reset-form').onsubmit = async event => {
+  event.preventDefault()
+  if (!db) return message('reset-message', 'Supabase is not configured.', true)
+  const password = $('new-password').value
+  const problems = passwordProblems(password)
+  if (problems.length) return message('reset-message', 'Use a password with ' + problems.join(', ') + '.', true)
+  const button = $('reset-submit')
+  button.disabled = true
+  message('reset-message', 'Updating your password…')
+  try {
+    const { error } = await db.auth.updateUser({ password })
+    if (error) return message('reset-message', 'Password update failed: ' + error.message, true)
+    await db.auth.signOut()
+    $('reset-form').reset()
+    switchAuthPanel('auth-form')
+    message('auth-message', 'Password updated. Sign in with your new password.')
+    modal('auth-modal')
+  } catch {
+    message('reset-message', 'Password update failed. Please request a new reset link.', true)
+  } finally {
+    button.disabled = false
+  }
+}
+
+$('mfa-login-form').onsubmit = async event => {
+  event.preventDefault()
+  if (!db || !pendingLoginMfa) return message('mfa-login-message', 'Start sign-in again to request a new code.', true)
+  const code = $('mfa-login-code').value.replace(/\s/g, '')
+  if (!/^\d{6}$/.test(code)) return message('mfa-login-message', 'Enter the 6-digit code from your authenticator app.', true)
+  const button = $('mfa-login-submit')
+  button.disabled = true
+  message('mfa-login-message', 'Verifying your authenticator…')
+  try {
+    const { error } = await db.auth.mfa.verify({
+      factorId: pendingLoginMfa.factorId,
+      challengeId: pendingLoginMfa.challengeId,
+      code
+    })
+    if (error) return message('mfa-login-message', 'That code could not be verified. Try the newest code from your authenticator.', true)
+    pendingLoginMfa = null
+    authGateToken = null
+    const { data: sessionData, error: sessionError } = await db.auth.getSession()
+    if (sessionError || !sessionData.session) throw sessionError || new Error('Session unavailable')
+    await handleAuthSession(sessionData.session)
+  } catch {
+    message('mfa-login-message', 'Two-step verification failed. Please try again.', true)
+  } finally {
+    button.disabled = false
+  }
+}
+$('mfa-login-cancel').onclick = async () => {
+  if (db) await db.auth.signOut()
+  pendingLoginMfa = null
+  switchAuthPanel('auth-form')
+  message('auth-message', 'Sign-in cancelled.')
+}
+
+async function renderMfaSettings() {
+  const root = $('mfa-settings')
+  if (!root) return
+  root.replaceChildren()
+  const heading = document.createElement('div')
+  heading.className = 'mfa-settings-heading'
+  heading.textContent = 'ACCOUNT SECURITY'
+  root.append(heading)
+  if (!user || !db) {
+    const note = document.createElement('p')
+    note.textContent = 'Sign in to manage two-step verification.'
+    root.append(note)
+    return
+  }
+  const { data, error } = await db.auth.mfa.listFactors()
+  if (error) {
+    const note = document.createElement('p')
+    note.textContent = 'Could not load authenticator settings. Please refresh and try again.'
+    root.append(note)
+    return
+  }
+  const verified = (data?.totp || []).find(item => item.status === 'verified')
+  const status = document.createElement('p')
+  status.textContent = verified
+    ? 'Authenticator verification is enabled for this account.'
+    : 'Add an authenticator app as a second sign-in check.'
+  root.append(status)
+
+  if (verified) {
+    const remove = document.createElement('button')
+    remove.className = 'btn outline'
+    remove.textContent = 'Remove authenticator'
+    remove.onclick = async () => {
+      if (!confirm('Remove two-step verification from this account?')) return
+      remove.disabled = true
+      const { error: removeError } = await db.auth.mfa.unenroll({ factorId: verified.id })
+      if (removeError) {
+        message('security-message', 'Could not remove authenticator: ' + removeError.message, true)
+      } else {
+        await renderMfaSettings()
+        message('security-message', 'Authenticator removed. Your account will use password sign-in until you enable it again.')
+      }
+      remove.disabled = false
+    }
+    root.append(remove)
+  } else {
+    const enable = document.createElement('button')
+    enable.className = 'btn primary'
+    enable.textContent = 'Set up authenticator'
+    enable.onclick = () => beginMfaEnrollment(root, enable)
+    root.append(enable)
+  }
+}
+
+async function beginMfaEnrollment(root, button) {
+  button.disabled = true
+  message('security-message', 'Preparing authenticator setup…')
+  try {
+    const { data, error } = await db.auth.mfa.enroll({
+      factorType: 'totp',
+      friendlyName: 'Gendev authenticator'
+    })
+    if (error) throw error
+
+    const setup = document.createElement('div')
+    setup.className = 'mfa-enrollment'
+    const instructions = document.createElement('p')
+    instructions.textContent = 'Scan this QR code with an authenticator app, then enter the current 6-digit code below.'
+    const qr = document.createElement('img')
+    qr.src = data.totp.qr_code
+    qr.alt = 'Authenticator setup QR code'
+    qr.className = 'mfa-qr'
+    const secretLabel = document.createElement('span')
+    secretLabel.textContent = 'Manual setup key'
+    const secret = document.createElement('code')
+    secret.textContent = data.totp.secret
+    secret.className = 'mfa-secret'
+    const form = document.createElement('form')
+    form.className = 'mfa-verify-form'
+    const input = document.createElement('input')
+    input.type = 'text'
+    input.inputMode = 'numeric'
+    input.autocomplete = 'one-time-code'
+    input.pattern = '[0-9]{6}'
+    input.maxLength = 6
+    input.placeholder = '6-digit code'
+    input.setAttribute('aria-label', 'Authenticator verification code')
+    const verify = document.createElement('button')
+    verify.className = 'btn primary'
+    verify.textContent = 'Verify and enable'
+    const cancel = document.createElement('button')
+    cancel.type = 'button'
+    cancel.className = 'btn outline'
+    cancel.textContent = 'Cancel'
+    const localMessage = document.createElement('p')
+    localMessage.className = 'message'
+    form.append(input, verify, cancel)
+    setup.append(instructions, qr, secretLabel, secret, form, localMessage)
+    root.append(setup)
+
+    cancel.onclick = async () => {
+      await db.auth.mfa.unenroll({ factorId: data.id })
+      setup.remove()
+      await renderMfaSettings()
+    }
+    form.onsubmit = async event => {
+      event.preventDefault()
+      const code = input.value.replace(/\s/g, '')
+      if (!/^\d{6}$/.test(code)) {
+        localMessage.textContent = 'Enter the 6-digit code from your authenticator.'
+        return
+      }
+      verify.disabled = true
+      try {
+        const { data: challenge, error: challengeError } = await db.auth.mfa.challenge({ factorId: data.id })
+        if (challengeError) throw challengeError
+        const { error: verifyError } = await db.auth.mfa.verify({
+          factorId: data.id,
+          challengeId: challenge.id,
+          code
+        })
+        if (verifyError) throw verifyError
+        setup.remove()
+        await renderMfaSettings()
+        message('security-message', 'Two-step verification is enabled. Future sign-ins will require your authenticator code.')
+      } catch (verifyError) {
+        localMessage.textContent = verifyError.message || 'The code could not be verified. Try again.'
+      } finally {
+        verify.disabled = false
+      }
+    }
+  } catch (error) {
+    message('security-message', error.message || 'Could not start authenticator setup.', true)
+  } finally {
+    button.disabled = false
+  }
+}
+
+async function afterAuth() {
+  if (user) await ensureProfile()
+  else profile = null
+  accountUI()
+  await renderMfaSettings()
+  await Promise.all([loadPosts(), loadProgress()])
+  if (!$('players-view').classList.contains('hidden')) loadPlayers()
+}
+$('signout').onclick = async () => {
+  if (!db) return
+  const { error } = await db.auth.signOut({ scope: 'global' })
+  if (error) return alert('Could not sign out. Please try again.')
 }
 async function loadProgress() {
   if (!user || !db) return
