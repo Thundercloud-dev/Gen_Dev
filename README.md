@@ -91,3 +91,8 @@ The notification is sent by the Supabase Edge Function `notify-points-admin`, wh
 Open [Supabase Edge Function Secrets](https://supabase.com/dashboard/project/qorfczqljrvxfouodhcp/functions/secrets) to add them. Do not put these values in GitHub, browser code, or Vercel `VITE_*` variables. Resend requires the sender domain to be verified before sending to arbitrary recipients. Check your school's email rules before using a school mailbox for automated application notifications.
 
 If the secrets are missing or the provider rejects a message, the claim is still saved in Gendev, and the Points page shows that the email alert failed. Email notifications are only for points mission claims; public chat messages and feed posts are not forwarded.
+
+
+## MFA row-level security helper
+
+The restrictive policies for profiles, progress, posts, chat, reports, custom levels, leaderboard entries, and point claims call `private.mfa_access_ok()`. The helper lives in the non-exposed `private` schema and checks only the current caller's verified factor state. It is security-definer with an empty search path, accepts no user ID argument, and is executable only by authenticated users. Browser clients are not granted direct access to `auth.mfa_factors`.
