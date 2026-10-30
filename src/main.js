@@ -61,7 +61,7 @@ async function ensureProfile() {
   if (error) { console.warn('Profile lookup failed:', error.message); return }
   if (data) { profile = data; return }
   const username = 'runner_' + user.id.replace(/-/g, '').slice(0, 10)
-  const displayName = String(user.user_metadata?.display_name || 'Runner').slice(0, 30)
+  const displayName = String(user.user_metadata?.account_name || user.user_metadata?.display_name || 'Runner').trim().slice(0, 30)
   const { data: created, error: createError } = await db.from('profiles')
     .insert({ id: user.id, username, display_name: displayName, role_tag: 'community' })
     .select('id,username,display_name,avatar_path')
@@ -211,16 +211,16 @@ document.querySelectorAll('[data-filter]').forEach(button => {
 $('search').oninput = renderPosts
 function openPost() {
   if (user) modal('post-modal')
-  else modal('auth-modal')
+  else { setAuthMode('signin'); modal('auth-modal') }
 }
 $('post-open').onclick = openPost
 $('share').onclick = openPost
-$('auth-open').onclick = () => modal('auth-modal')
+$('auth-open').onclick = () => { setAuthMode('signin'); modal('auth-modal') }
 document.querySelectorAll('[data-close]').forEach(button => button.onclick = () => modal(button.dataset.close, false))
 
 $('post-form').onsubmit = async event => {
   event.preventDefault()
-  if (!user || !db) { modal('post-modal', false); modal('auth-modal'); return }
+  if (!user || !db) { modal('post-modal', false); setAuthMode('signin'); modal('auth-modal'); return }
   const rawLink = $('post-link').value.trim()
   const link = validUrl(rawLink)
   if (rawLink && !link) return message('post-message', 'Please enter a valid http or https link.', true)
@@ -359,52 +359,75 @@ if (db) {
   })
 }
 
+let authMode = 'signin'
+function setAuthMode(mode) {
+  authMode = mode
+  const creating = mode === 'signup'
+  $('account-name-field').classList.toggle('hidden', !creating)
+  $('account-name').required = creating
+  $('account-name').autocomplete = 'nickname'
+  $('password').autocomplete = creating ? 'new-password' : 'current-password'
+  $('auth-submit').textContent = creating ? 'Create account' : 'Sign in'
+  $('signup').textContent = creating ? 'Back to sign in' : 'Create account'
+  $('forgot-password').classList.toggle('hidden', creating)
+  $('auth-title').textContent = creating ? 'Create your Gendev account.' : 'Welcome to Gendev.'
+  $('auth-intro').textContent = creating
+    ? 'Choose the account name people will see on your public Gendev profile.'
+    : 'Sign in to join the community, publish posts, and sync your progress.'
+  message('auth-message', '')
+}
+$('signup').onclick = () => setAuthMode(authMode === 'signup' ? 'signin' : 'signup')
+
 $('auth-form').onsubmit = async event => {
   event.preventDefault()
-  if (!db) return message('auth-message', 'Supabase is not configured in Vercel yet.', true)
-  const button = $('auth-submit')
-  button.disabled = true
-  message('auth-message', 'Signing in securely…')
-  try {
-    const { error } = await db.auth.signInWithPassword({
-      email: $('email').value.trim(),
-      password: $('password').value
-    })
-    if (error) message('auth-message', 'Sign-in failed. Check your email and password, then try again.', true)
-    // A successful sign-in is completed by the auth-state listener, including MFA if enrolled.
-  } catch {
-    message('auth-message', 'Sign-in failed. Please try again.', true)
-  } finally {
-    button.disabled = false
-  }
-}
-
-$('signup').onclick = async () => {
   if (!db) return message('auth-message', 'Supabase is not configured in Vercel yet.', true)
   const emailInput = $('email')
   const email = emailInput.value.trim()
   const password = $('password').value
   if (!email || !emailInput.checkValidity()) return message('auth-message', 'Enter a valid email address.', true)
-  const problems = passwordProblems(password)
-  if (problems.length) return message('auth-message', 'Use a password with ' + problems.join(', ') + '.', true)
 
-  const button = $('signup')
-  button.disabled = true
-  message('auth-message', 'Creating your account…')
-  try {
-    const { data, error } = await db.auth.signUp({
-      email,
-      password,
-      options: { data: { display_name: email.split('@')[0].slice(0, 24) } }
-    })
-    if (error) return message('auth-message', 'Account creation failed: ' + error.message, true)
-    if (data.session) {
-      message('auth-message', 'Account created. Finishing secure sign-in…')
-    } else {
-      message('auth-message', 'Account created. Check your email to confirm your address, then sign in.')
+  if (authMode === 'signup') {
+    const accountName = $('account-name').value.trim()
+    if (accountName.length < 3 || accountName.length > 30) {
+      return message('auth-message', 'Your account name must be between 3 and 30 characters.', true)
     }
+    if (!/[\\p{L}\\p{N}]/u.test(accountName)) {
+      return message('auth-message', 'Your account name must include at least one letter or number.', true)
+    }
+    const problems = passwordProblems(password)
+    if (problems.length) return message('auth-message', 'Use a password with ' + problems.join(', ') + '.', true)
+
+    const button = $('auth-submit')
+    button.disabled = true
+    message('auth-message', 'Creating your account…')
+    try {
+      const { data, error } = await db.auth.signUp({
+        email,
+        password,
+        options: { data: { account_name: accountName, display_name: accountName } }
+      })
+      if (error) return message('auth-message', 'Account creation failed: ' + error.message, true)
+      if (data.session) {
+        message('auth-message', 'Account created. Finishing secure sign-in…')
+      } else {
+        message('auth-message', 'Account created. Check your email to confirm your address, then sign in.')
+      }
+    } catch {
+      message('auth-message', 'Account creation failed. Please try again.', true)
+    } finally {
+      button.disabled = false
+    }
+    return
+  }
+
+  const button = $('auth-submit')
+  button.disabled = true
+  message('auth-message', 'Signing in securely…')
+  try {
+    const { error } = await db.auth.signInWithPassword({ email, password })
+    if (error) message('auth-message', 'Sign-in failed. Check your email and password, then try again.', true)
   } catch {
-    message('auth-message', 'Account creation failed. Please try again.', true)
+    message('auth-message', 'Sign-in failed. Please try again.', true)
   } finally {
     button.disabled = false
   }
@@ -1129,7 +1152,7 @@ async function loadChat() {
 }
 $('chat-form').onsubmit = async event => {
   event.preventDefault()
-  if (!user || !db) { modal('auth-modal'); return }
+  if (!user || !db) { setAuthMode('signin'); modal('auth-modal'); return }
   const body = $('chat-input').value.trim()
   if (!body) return
   if (Date.now() - lastChatSend < 2500) return message('chat-status', 'Please wait a moment before sending another message.', true)
