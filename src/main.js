@@ -109,7 +109,7 @@ function renderPosts() {
     meta.className = 'post-meta'
     const tag = document.createElement('span')
     tag.className = 'tag ' + post.post_type
-    tag.textContent = post.post_type === 'clip' ? '▶ CLIP' : '✦ TIP'
+    tag.textContent = ({clip:'▶ CLIP',video:'▶ VIDEO',tip:'✦ TIP',project:'⌘ PROJECT',discussion:'☰ DISCUSSION',defeat:'⚡ DEFEAT'})[post.post_type] || post.post_type.toUpperCase()
     const date = document.createElement('span')
     date.textContent = new Date(post.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
     meta.append(tag, date)
@@ -163,7 +163,7 @@ function renderPosts() {
       del.onclick = () => deletePost(post.id, post.media_path)
       foot.append(del)
     }
-    if (post.post_type === 'clip' && (!user || user.id !== post.user_id)) {
+    if (['clip', 'video'].includes(post.post_type) && (!user || user.id !== post.user_id)) {
       const support = document.createElement('button')
       support.className = 'support-creator'
       support.textContent = '♡ Support creator'
@@ -677,53 +677,6 @@ function makeGame() {
   }
 }
 game = makeGame()
-
-/* Stripe Checkout is test-mode only; live keys are rejected by the API. */
-$('buy-button').onclick = async () => {
-  if (!user || !session?.access_token) { modal('auth-modal'); return }
-  const button = $('buy-button')
-  button.disabled = true
-  button.textContent = 'Opening test checkout…'
-  message('shop-message', '')
-  try {
-    const response = await fetch('/api/create-checkout-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
-      body: '{}'
-    })
-    const result = await response.json()
-    if (!response.ok) throw new Error(result.error || 'Test checkout is not configured yet.')
-    if (result.url) window.location.assign(result.url)
-    else throw new Error('Checkout did not return a link.')
-  } catch (error) {
-    message('shop-message', error.message, true)
-  } finally {
-    button.disabled = false
-    button.textContent = 'Try test checkout'
-  }
-}
-const paymentState = new URLSearchParams(location.search).get('payment')
-if (paymentState === 'success') message('shop-message', 'Test checkout returned successfully. No in-game item is granted yet.')
-if (paymentState === 'cancel') message('shop-message', 'Checkout was cancelled.')
-
-accountUI()
-loadPosts()
-renderOwnProfile()
-if (db) {
-  db.auth.onAuthStateChange((_event, nextSession) => {
-    session = nextSession
-    user = nextSession?.user || null
-    queueMicrotask(() => afterAuth())
-  })
-  db.auth.getSession().then(async ({ data }) => {
-    session = data.session || null
-    user = session?.user || null
-    await afterAuth()
-  })
-} else {
-  $('posts').textContent = 'Supabase setup is missing. Configure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in Vercel.'
-}
-
 
 /* Gendev live community chat */
 const CHAT_CHANNELS = {
