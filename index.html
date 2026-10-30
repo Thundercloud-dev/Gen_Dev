@@ -149,12 +149,13 @@
 <footer><b>Gendev</b><span>Build. Create. Play. Run.</span><span>© <span id="year"></span></span></footer>
 </div>
 
-<div id="auth-modal" class="modal hidden"><div class="backdrop" data-close="auth-modal"></div><section class="modal-card auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title"><button class="close" data-close="auth-modal" aria-label="Close">×</button><div class="eyebrow">GENDEV ACCOUNT SECURITY</div><h2 id="auth-title">Welcome to Gendev.</h2><p>Sign in to join the community, publish posts, and sync your progress.</p>
+<div id="auth-modal" class="modal hidden"><div class="backdrop" data-close="auth-modal"></div><section class="modal-card auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title"><button class="close" data-close="auth-modal" aria-label="Close">×</button><div class="eyebrow">GENDEV ACCOUNT SECURITY</div><h2 id="auth-title">Welcome to Gendev.</h2><p id="auth-intro">Sign in to join the community, publish posts, and sync your progress.</p>
 <form id="auth-form">
+<div id="account-name-field" class="hidden"><label for="account-name">Account name</label><input id="account-name" type="text" autocomplete="nickname" minlength="3" maxlength="30" placeholder="What should people call you?"><p class="auth-hint">This name appears on your public Gendev profile. You can use spaces.</p></div>
 <label for="email">Email address</label><input id="email" type="email" autocomplete="email" required maxlength="254" placeholder="you@example.com">
 <label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required placeholder="Your password">
 <p class="auth-hint">New accounts: use at least 12 characters with uppercase, lowercase, a number, and a symbol. A password manager can help create and remember a unique password.</p>
-<div class="actions"><button id="auth-submit" class="btn primary">Sign in</button><button type="button" id="signup" class="btn outline">Create account</button></div>
+<div class="actions"><button id="auth-submit" class="btn primary" type="submit">Sign in</button><button type="button" id="signup" class="btn outline">Create account</button></div>
 <button type="button" id="forgot-password" class="text-button">Forgot password?</button><div id="auth-message" class="message" role="status" aria-live="polite"></div>
 </form>
 <form id="reset-form" class="hidden"><h3>Reset your password</h3><label for="new-password">New password</label><input id="new-password" type="password" autocomplete="new-password" required minlength="12" maxlength="128" placeholder="Create a new password"><p class="auth-hint">Use 12+ characters, uppercase and lowercase letters, a number, and a symbol.</p><button id="reset-submit" class="btn primary full">Update password</button><div id="reset-message" class="message" role="status" aria-live="polite"></div></form>
