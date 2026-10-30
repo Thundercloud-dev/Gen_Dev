@@ -780,15 +780,30 @@ $('point-submit-form').onsubmit = async event => {
   button.disabled = true
   button.textContent = 'Submitting…'
   try {
-    const { error } = await db.from('point_claims').insert({
-      user_id: user.id,
-      mission_id: selectedPointMission.id,
-      proof_text: proofText,
-      proof_url: proofUrl
-    })
+    const { data: savedClaim, error } = await db.from('point_claims')
+      .insert({
+        user_id: user.id,
+        mission_id: selectedPointMission.id,
+        proof_text: proofText,
+        proof_url: proofUrl
+      })
+      .select('id')
+      .single()
     if (error) throw error
     modal('point-submit-modal', false)
     await loadPoints()
+    const notification = await db.functions.invoke('notify-points-admin', {
+      body: { claimId: savedClaim.id }
+    })
+    const notificationStatus = $('points-notification-status')
+    notificationStatus.classList.remove('hidden')
+    if (notification.error || notification.data?.sent !== true) {
+      notificationStatus.className = 'points-notification-status error'
+      notificationStatus.textContent = 'Your mission was saved, but the email alert could not be sent yet. The administrator can still review it in Supabase.'
+    } else {
+      notificationStatus.className = 'points-notification-status'
+      notificationStatus.textContent = 'Mission submitted! A review notification was emailed to the Gendev administrator.'
+    }
   } catch (error) {
     const note = error?.code === '23505'
       ? 'You already have a pending or approved submission for this mission.'
