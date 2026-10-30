@@ -1197,7 +1197,7 @@ $('indie-game-form').onsubmit = async event => {
 }
 
 
-async function afterAuth() {async function afterAuth() {
+async function afterAuth() {
   if (user) await ensureProfile()
   else profile = null
   accountUI()
