@@ -1,94 +1,22 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#10142b" />
-    <meta name="description" content="Speedrunners Online - a cloud-powered platform runner." />
-    <title>Speedrunners Online</title>
-  </head>
-  <body>
-    <div class="app-shell">
-      <header class="topbar">
-        <a class="brand" href="/" aria-label="Speedrunners Online home">
-          <span class="brand-mark">☁</span>
-          <span>SPEEDRUNNERS <b>ONLINE</b></span>
-        </a>
-        <div class="account-area">
-          <span id="account-label" class="account-label">Playing as Guest</span>
-          <button id="signout-button" class="button button-quiet hidden" type="button">Sign out</button>
-        </div>
-      </header>
-
-      <main>
-        <section class="hero">
-          <div>
-            <p class="eyebrow">RUN • JUMP • BEAT YOUR BEST</p>
-            <h1>Keep moving.<br /><span>Beat your record.</span></h1>
-            <p class="hero-copy">A quick platform-runner starter. Sign in to save your progress between visits.</p>
-          </div>
-          <div class="stats-row">
-            <div class="stat"><span>BEST SCORE</span><strong id="best-score">0</strong></div>
-            <div class="stat"><span>COINS</span><strong id="coin-count">0</strong></div>
-            <div class="stat"><span>LEVEL</span><strong id="level-number">1</strong></div>
-          </div>
-        </section>
-
-        <section class="game-layout">
-          <div class="game-panel">
-            <div class="game-heading">
-              <div><p class="eyebrow">THE RUN</p><h2>Cloud Dash</h2></div>
-              <div class="live-score">SCORE <strong id="score">0</strong></div>
-            </div>
-            <div class="canvas-wrap">
-              <canvas id="game" width="900" height="420" aria-label="Cloud Dash platform runner"></canvas>
-              <div id="game-overlay" class="game-overlay">
-                <div class="overlay-card">
-                  <div class="cloud-icon">☁</div>
-                  <h3 id="overlay-title">Ready, runner?</h3>
-                  <p id="overlay-copy">Jump over the blocks and collect the stars.</p>
-                  <button id="start-button" class="button button-primary" type="button">Start running</button>
-                </div>
-              </div>
-            </div>
-            <div class="game-footer">
-              <span>SPACE / ↑ / TAP TO JUMP</span>
-              <span id="run-status">READY</span>
-              <button id="restart-button" class="text-button" type="button">Restart</button>
-            </div>
-          </div>
-
-          <aside class="side-column">
-            <section class="side-card auth-card" id="auth-card">
-              <p class="eyebrow">YOUR ACCOUNT</p>
-              <h2>Save your runs</h2>
-              <p class="muted">Create an account or sign in to sync your best score, coins, jumps, and unlocked level.</p>
-              <form id="auth-form">
-                <label for="email">Email</label>
-                <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
-                <label for="password">Password</label>
-                <input id="password" name="password" type="password" autocomplete="current-password" minlength="6" placeholder="At least 6 characters" required />
-                <div class="auth-actions">
-                  <button class="button button-primary" id="signin-button" type="submit">Sign in</button>
-                  <button class="button button-secondary" id="signup-button" type="button">Create account</button>
-                </div>
-              </form>
-              <p id="auth-message" class="message" role="status"></p>
-            </section>
-
-            <section class="side-card progress-card">
-              <p class="eyebrow">SAVED PROGRESS</p>
-              <h2>Your stats</h2>
-              <div class="progress-line"><span>Total jumps</span><strong id="jump-count">0</strong></div>
-              <div class="progress-line"><span>Unlocked level</span><strong id="unlocked-level">1</strong></div>
-              <div class="progress-line"><span>Save status</span><strong id="save-status">Guest only</strong></div>
-              <p class="tiny-note">Progress saves automatically after a run when you are signed in.</p>
-            </section>
-          </aside>
-        </section>
-      </main>
-      <footer>Speedrunners Online <span>•</span> Starter build</footer>
-    </div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
-</html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101426"><meta name="description" content="Share speedrun clips, tips, and records with the Speedrunners Online community.">
+<title>Speedrunners Online</title></head><body>
+<div class="shell">
+<header><a class="brand" href="#"><span class="logo">S</span> speedrunners<span class="cyan">.online</span></a>
+<nav><button class="tab active" data-view="community">Community</button><button class="tab" data-view="game">Quick Run ⚡</button></nav>
+<div class="account"><span id="account">Browsing as guest</span><button id="auth-open" class="btn outline">Sign in</button><button id="signout" class="btn outline hidden">Sign out</button></div></header>
+<section class="hero"><div><div class="eyebrow">THE SPEEDRUNNING COMMUNITY</div><h1>Share the run.<br><span>Find your next record.</span></h1><p>Post your best clips, trade strategies, and learn from other runners. Every second counts.</p><button class="btn primary" id="explore">Explore community ↗</button> <button class="btn outline" data-goto="game">Try Quick Run</button></div><div class="hero-graphic"><div class="orbit"></div><div class="cloud">☁</div><span class="chip">RUN · REPEAT · IMPROVE</span></div></section>
+<main id="community-view">
+<div class="section-head"><div><div class="eyebrow">THE FEED</div><h2>Community board</h2><p>Clips, discoveries, and tips from runners.</p></div><button class="btn primary" id="post-open">＋ Create a post</button></div>
+<div class="layout"><section><div class="toolbar"><div class="filters"><button class="filter active" data-filter="all">All posts</button><button class="filter" data-filter="clip">Clips</button><button class="filter" data-filter="tip">Tips</button></div><input id="search" class="search" type="search" placeholder="Search the feed…"></div><div id="posts"><div class="empty">Loading community posts…</div></div></section>
+<aside><div class="side-card welcome"><div class="eyebrow">WELCOME, RUNNER</div><h3>Every run has a story.</h3><p>Share a moment, help someone beat a level, or celebrate a new personal best.</p><button class="btn dark" id="share">Share something</button></div><div class="side-card"><div class="eyebrow">COMMUNITY GUIDELINES</div><ul><li>Be helpful and respectful.</li><li>Share links you have permission to post.</li><li>Keep tips clear and useful.</li></ul></div><div class="side-card"><div class="eyebrow">QUICK CHALLENGE ⚡</div><h3>Got 30 seconds?</h3><p>Try the mini runner and see how far you can get.</p><button class="link" data-goto="game">Play Quick Run →</button></div></aside></div>
+</main>
+<main id="game-view" class="hidden"><div class="section-head"><div><div class="eyebrow">SIDE QUEST</div><h2>Quick Run</h2><p>A tiny browser runner. Jump over blocks and beat your score.</p></div><button class="btn outline" data-goto="community">← Back to community</button></div>
+<div class="game-layout"><section class="game-panel"><div class="game-head"><div><div class="eyebrow">ENDLESS CHALLENGE</div><h3>Cloud Dash</h3></div><div>SCORE <b id="score">0</b></div></div><div class="stage"><canvas id="runner" width="900" height="360"></canvas><div id="overlay" class="overlay"><div><div class="cloud small-cloud">☁</div><h3 id="overlay-title">Ready, runner?</h3><p id="overlay-copy">Press space, tap, or click to jump.</p><button id="start" class="btn primary">Start running</button></div></div></div><div class="game-foot"><span>SPACE / ↑ / TAP TO JUMP</span><span id="run-status">READY</span><button id="restart" class="link">Restart ↻</button></div></section>
+<aside class="side-card record"><div class="eyebrow">YOUR RECORD</div><strong id="best">0</strong><p>Best score saves to your account when you sign in.</p><hr><div class="eyebrow">HOW TO PLAY</div><p>Jump over the pink blocks. The longer you survive, the faster the run gets.</p><p id="save-status" class="muted">Playing as guest — sign in to save.</p></aside></div></main>
+<footer><b>speedrunners.online</b><span>Built for runners, by runners.</span><span>© <span id="year"></span></span></footer></div>
+<div id="auth-modal" class="modal hidden"><div class="backdrop" data-close="auth-modal"></div><section class="modal-card"><button class="close" data-close="auth-modal">×</button><div class="eyebrow">YOUR RUNNER PROFILE</div><h2>Join the community.</h2><p>Sign in to post clips and tips, and save your Quick Run record.</p><form id="auth-form"><label>Email</label><input id="email" type="email" autocomplete="email" required placeholder="you@example.com"><label>Password</label><input id="password" type="password" minlength="6" autocomplete="current-password" required placeholder="At least 6 characters"><div class="actions"><button class="btn primary">Sign in</button><button type="button" id="signup" class="btn outline">Create account</button></div><div id="auth-message" class="message"></div></form></section></div>
+<div id="post-modal" class="modal hidden"><div class="backdrop" data-close="post-modal"></div><section class="modal-card"><button class="close" data-close="post-modal">×</button><div class="eyebrow">ADD TO THE FEED</div><h2>Create a post</h2><p>Share a speedrun clip or a tip that could help another runner.</p><form id="post-form"><label>Post type</label><select id="post-type"><option value="clip">Speedrun clip</option><option value="tip">Tip / strategy</option></select><label>Title</label><input id="post-title" maxlength="100" required placeholder="What are you sharing?"><label>Description</label><textarea id="post-body" rows="4" maxlength="3000" required placeholder="Add context, steps, or what makes this run special…"></textarea><label>Clip or reference link <small>(optional)</small></label><input id="post-link" type="url" placeholder="https://…"><p class="hint">Paste a video link for now. Direct video uploads can be added later.</p><button id="publish" class="btn primary full">Publish post</button><div id="post-message" class="message"></div></form></section></div>
+<script type="module" src="/src/main.js"></script></body></html>
